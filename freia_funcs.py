@@ -41,41 +41,43 @@ class CrossConvolutions(nn.Module):
         self.gamma1 = nn.Parameter(torch.zeros(1))
         self.gamma2 = nn.Parameter(torch.zeros(1))
 
+        # FIXME: remove padding_mode=pad_mode in nn.Conv2d()
+
         self.conv_scale0_0 = nn.Conv2d(in_channels, channels_hidden,
                                        kernel_size=kernel_size, padding=pad,
-                                       bias=not batch_norm, padding_mode=pad_mode)
+                                       bias=not batch_norm)
 
         self.conv_scale1_0 = nn.Conv2d(in_channels, channels_hidden,
                                        kernel_size=kernel_size, padding=pad,
-                                       bias=not batch_norm, padding_mode=pad_mode)
+                                       bias=not batch_norm)
         self.conv_scale2_0 = nn.Conv2d(in_channels, channels_hidden,
                                        kernel_size=kernel_size, padding=pad,
-                                       bias=not batch_norm, padding_mode=pad_mode)
+                                       bias=not batch_norm)
         self.conv_scale0_1 = nn.Conv2d(channels_hidden * 1, channels,  #
                                        kernel_size=kernel_size, padding=pad,
-                                       bias=not batch_norm, padding_mode=pad_mode, dilation=1)
+                                       bias=not batch_norm, dilation=1)
         self.conv_scale1_1 = nn.Conv2d(channels_hidden * 1, channels,  #
                                        kernel_size=kernel_size, padding=pad * 1,
-                                       bias=not batch_norm, padding_mode=pad_mode, dilation=1)
+                                       bias=not batch_norm, dilation=1)
         self.conv_scale2_1 = nn.Conv2d(channels_hidden * 1, channels,  #
                                        kernel_size=kernel_size, padding=pad,
-                                       bias=not batch_norm, padding_mode=pad_mode)
+                                       bias=not batch_norm)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
 
         self.up_conv10 = nn.Conv2d(channels_hidden, channels,
-                                   kernel_size=kernel_size, padding=pad, bias=True, padding_mode=pad_mode)
+                                   kernel_size=kernel_size, padding=pad, bias=True)
 
         self.up_conv21 = nn.Conv2d(channels_hidden, channels,
-                                   kernel_size=kernel_size, padding=pad, bias=True, padding_mode=pad_mode)
+                                   kernel_size=kernel_size, padding=pad, bias=True)
 
         self.down_conv01 = nn.Conv2d(channels_hidden, channels,
                                      kernel_size=kernel_size, padding=pad,
-                                     bias=not batch_norm, stride=2, padding_mode=pad_mode, dilation=1)
+                                     bias=not batch_norm, stride=2, dilation=1)
 
         self.down_conv12 = nn.Conv2d(channels_hidden, channels,
                                      kernel_size=kernel_size, padding=pad,
-                                     bias=not batch_norm, stride=2, padding_mode=pad_mode, dilation=1)
+                                     bias=not batch_norm, stride=2, dilation=1)
 
         self.lr = nn.LeakyReLU(self.leaky_slope)
 
