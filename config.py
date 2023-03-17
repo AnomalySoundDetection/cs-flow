@@ -8,7 +8,12 @@ device = 'cuda'  # or 'cpu'
 dataset_path = "data/images"  # parent directory of datasets
 class_name = "dummy_data"  # dataset subdirectory
 modelname = "dummy_test"  # export evaluations/logs with this name
-pre_extracted = True  # were feature preextracted with extract_features?
+
+dev_directory = "/mnt/Directory/dev_data"
+eval_directory = "/mnt/Directory/eval_data"
+machine_type = ""
+
+pre_extracted = False  # were feature preextracted with extract_features?
 
 img_size = (768, 768)  # image size of highest scale, others are //2, //4
 assert img_size[0] % 128 == 0 and img_size[1] % 128 == 0, "image width/height should be a multiple of 128"
@@ -28,6 +33,8 @@ lr_init = 2e-4  # inital learning rate
 use_gamma = True
 
 extractor = "effnetB5"  # feature dataset name (which was used in 'extract_features.py' as 'export_name')
+
+# FIXME: n_feat = 1024 (PANNs ver)
 n_feat = {"effnetB5": 304}[extractor]  # dependend from feature extractor
 map_size = (img_size[0] // 32, img_size[1] // 32)
 

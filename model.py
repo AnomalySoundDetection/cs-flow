@@ -42,6 +42,7 @@ def nf_forward(model, inputs):
 class FeatureExtractor(nn.Module):
     def __init__(self):
         super(FeatureExtractor, self).__init__()
+        # TODO: chage pretrained network
         self.feature_extractor = EfficientNet.from_pretrained('efficientnet-b5')
 
     def eff_ext(self, x, use_layer=35):

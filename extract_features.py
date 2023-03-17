@@ -11,6 +11,8 @@ def extract(train_loader, test_loader, class_name):
     model = FeatureExtractor()
     model.to(c.device)
     model.eval()
+    # print("model: \n", model)
+    # print(model._fc.in_features)
     with torch.no_grad():
         for name, loader in zip(['train', 'test'], [train_loader, test_loader]):
             features = [list() for _ in range(c.n_scales)]
