@@ -5,20 +5,31 @@ research purposes. Don't try this code if you are a software engineer.'''
 device = 'cuda'  # or 'cpu'
 
 # data settings
-dataset_path = "data/images"  # parent directory of datasets
-class_name = "dummy_data"  # dataset subdirectory
+# dataset_path = "data/images"  # parent directory of datasets
+dataset_path = "/mnt/HDD2/ASD_team/dev_data"
+# evl_dataset_path = "/mnt/HDD2/ASD_team/dev_data"
+
+# class_name = "dummy_data"  # dataset subdirectory
+# FIXME: be a list
+class_name = "fan"  # dataset subdirectory
+
 modelname = "dummy_test"  # export evaluations/logs with this name
 
 dev_directory = "/mnt/Directory/dev_data"
 eval_directory = "/mnt/Directory/eval_data"
-machine_type = ""
+machine_type = ["fan", "pump", "slider", "ToyCar", "ToyConveyor", "valve"]
+sample_rate = 32000
+# pre_extracted = False  # were feature preextracted with extract_features?
+pre_extracted = True  # were feature preextracted with extract_features?
 
-pre_extracted = False  # were feature preextracted with extract_features?
+# img_size = (768, 768)  # image size of highest scale, others are //2, //4
+# assert img_size[0] % 128 == 0 and img_size[1] % 128 == 0, "image width/height should be a multiple of 128"
 
-img_size = (768, 768)  # image size of highest scale, others are //2, //4
-assert img_size[0] % 128 == 0 and img_size[1] % 128 == 0, "image width/height should be a multiple of 128"
+frame_size = (768, 768)  # image size of highest scale, others are //2, //4
+assert frame_size[0] % 128 == 0 and frame_size[1] % 128 == 0, "image width/height should be a multiple of 128"
 
-img_dims = [3] + list(img_size)
+# img_dims = [3] + list(img_size)
+img_dims = [3] + list(frame_size)
 
 # transformation settings
 norm_mean, norm_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
@@ -36,7 +47,8 @@ extractor = "effnetB5"  # feature dataset name (which was used in 'extract_featu
 
 # FIXME: n_feat = 1024 (PANNs ver)
 n_feat = {"effnetB5": 304}[extractor]  # dependend from feature extractor
-map_size = (img_size[0] // 32, img_size[1] // 32)
+# map_size = (img_size[0] // 32, img_size[1] // 32)
+map_size = (frame_size[0] // 32, frame_size[1] // 32)
 
 # dataloader parameters
 batch_size = 16  # actual batch size is this value multiplied by n_transforms(_test)
@@ -51,3 +63,5 @@ sub_epochs = 60  # evaluate after this number of epochs
 verbose = True
 hide_tqdm_bar = True
 save_model = True
+
+

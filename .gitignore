@@ -2,3 +2,4 @@
 viz/*
 models/*
 *.npy
+*.log

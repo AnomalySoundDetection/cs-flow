@@ -36,8 +36,11 @@ export_name = c.class_name
 export_dir = 'data/features/' + export_name + '/'
 c.pre_extracted = False
 os.makedirs(export_dir, exist_ok=True)
-train_set, test_set = load_datasets(c.dataset_path, c.class_name)
-train_loader, test_loader = make_dataloaders(train_set, test_set)
-extract(train_loader, test_loader, c.class_name)
-paths = [p for p, l in test_set.samples]
-np.save(export_dir + c.class_name + '_image_paths.npy', paths)
+
+for m in c.machine_type:
+    train_set, test_set = load_datasets(c.dataset_path, m)
+    train_loader, test_loader = make_dataloaders(train_set, test_set)
+    extract(train_loader, test_loader, c.class_name)
+    paths = [p for p, l in test_set.samples]
+    print(export_dir + c.class_name + '_image_paths.npy')
+    # np.save(export_dir + c.class_name + '_image_paths.npy', paths)

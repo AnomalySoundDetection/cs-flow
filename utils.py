@@ -5,6 +5,44 @@ import config as c
 from torchvision.datasets import ImageFolder
 from torch.utils.data import Dataset
 import numpy as np
+import librosa
+
+import os
+import torchaudio
+from torch.utils.data import Dataset
+
+
+# class AudioFolder(Dataset):
+#     def __init__(self, root, transform=None, target_transform=None, n_scales=c.n_scales):
+#         self.root = root
+#         self.transform = transform
+#         self.target_transform = target_transform
+#         self.extensions = torchaudio.get_audio_backend_extensions()
+#         self.file_list = self._get_file_list()
+#         self.n_scales = n_scales
+
+#     def __len__(self):
+#         return len(self.file_list)
+
+#     def __getitem__(self, index):
+#         file_path = self.file_list[index]
+#         waveform, sample_rate = torchaudio.load(file_path)
+#         if self.transform is not None:
+#             waveform = self.transform(waveform)
+#         if self.target_transform is not None:
+#             target = self.target_transform(os.path.dirname(file_path))
+#         else:
+#             target = os.path.dirname(file_path)
+#         return waveform, target
+
+#     def _get_file_list(self):
+#         file_list = []
+#         for root, _, files in sorted(os.walk(self.root)):
+#             for file_name in sorted(files):
+#                 file_path = os.path.join(root, file_name)
+#                 if torchaudio.get_audio_backend(file_path).lower() in self.extensions:
+#                     file_list.append(file_path)
+#         return file_list
 
 
 def t2np(tensor):
@@ -34,74 +72,132 @@ def cat_maps(z):
 
 
 def load_datasets(dataset_path, class_name):
-    '''
-    Expected folder/file format to find anomalies of class <class_name> from dataset location <dataset_path>:
+    # def target_transform(target):
+    #     return class_perm[target]
+    # trainset = []
+    # testset = []
+    # # print("pre_extracted is ", c.pre_extracted)
+    # if c.pre_extracted:
+    trainset = AudioDataset(train=True, root=dataset_path, machine=class_name)
+    testset = AudioDataset(train=False, root=dataset_path, machine=class_name)
+    # else:
+    #     data_dir_train = os.path.join(dataset_path, class_name, 'train')
+    #     data_dir_test = os.path.join(dataset_path, class_name, 'test')
 
-    train data:
+    #     classes = os.listdir(data_dir_test)
+    #     classes.sort()
+    #     class_perm = list()
+    #     class_idx = 1
+    #     for cl in classes:
+    #         if 'normal' in cl:
+    #             class_perm.append(0)
+    #         else:
+    #             class_perm.append(class_idx)
 
-            dataset_path/class_name/train/good/any_filename.png
-            dataset_path/class_name/train/good/another_filename.tif
-            dataset_path/class_name/train/good/xyz.png
-            [...]
+    #     file_paths, targets = [], []
+    #     for root, dirs, files in os.walk(data_dir_train):
+    #         for f in files:
+    #             file_path = os.path.join(root, file_path)
+    #             label = class_perm[int('normal' not i file_path)]
+    #             file_paths.append(file_path)
+    #             targets.append(label)
 
-    test data:
+    #     # TODO: resize -> change frames size
+    #     tfs = [transforms.Resize(c.img_size), transforms.ToTensor(), transforms.Normalize(c.norm_mean, c.norm_std)]
+    #     transform_train = transforms.Compose(tfs)
 
-        'normal data' = non-anomalies
+    #     trainset = ImageFolder(data_dir_train, transform=transform_train)
+    #     testset = ImageFolder(data_dir_test, transform=transform_train, target_transform=target_transform)
+    # # print(len(trainset))
+    return trainset, testset
 
-            dataset_path/class_name/test/good/name_the_file_as_you_like_as_long_as_there_is_an_image_extension.webp
-            dataset_path/class_name/test/good/did_you_know_the_image_extension_webp?.png
-            dataset_path/class_name/test/good/did_you_know_that_filenames_may_contain_question_marks????.png
-            dataset_path/class_name/test/good/dont_know_how_it_is_with_windows.png
-            dataset_path/class_name/test/good/just_dont_use_windows_for_this.png
-            [...]
 
-        anomalies - assume there are anomaly classes 'crack' and 'curved'
 
-            dataset_path/class_name/test/crack/dat_crack_damn.png
-            dataset_path/class_name/test/crack/let_it_crack.png
-            dataset_path/class_name/test/crack/writing_docs_is_fun.png
-            [...]
-
-            dataset_path/class_name/test/curved/wont_make_a_difference_if_you_put_all_anomalies_in_one_class.png
-            dataset_path/class_name/test/curved/but_this_code_is_practicable_for_the_mvtec_dataset.png
-            [...]
-    '''
-
-    def target_transform(target):
-        return class_perm[target]
-
-    if c.pre_extracted:
-        trainset = FeatureDataset(train=True)
-        testset = FeatureDataset(train=False)
-    else:
-        data_dir_train = os.path.join(dataset_path, class_name, 'train')
-        data_dir_test = os.path.join(dataset_path, class_name, 'test')
+class AudioDataset(Dataset):
+    def __init__(self, root="data/features/", machine="fan", n_scales=c.n_scales, train=False, n_mfcc=20, n_fft=512, hop_length=256):
+        super(AudioDataset, self).__init__()
+        self.data = list()
+        self.n_scales = n_scales
+        self.train = train
+        self.machine = machine
+        self.n_mfcc = n_mfcc
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.dataset_path = os.path.join(root, machine)
+        suffix = 'train' if train else 'test'
+    
+    def _load_files(self):
+        data_dir_train = os.path.join(self.dataset_path, self.class_name, 'train')
+        data_dir_test = os.path.join(self.dataset_path, self.class_name, 'test')
 
         classes = os.listdir(data_dir_test)
-        if 'good' not in classes:
-            print('There should exist a subdirectory "good". Read the doc of this function for further information.')
-            exit()
         classes.sort()
         class_perm = list()
         class_idx = 1
         for cl in classes:
-            if cl == 'good':
+            if 'normal' in cl:
                 class_perm.append(0)
             else:
                 class_perm.append(class_idx)
-                class_idx += 1
 
-        tfs = [transforms.Resize(c.img_size), transforms.ToTensor(), transforms.Normalize(c.norm_mean, c.norm_std)]
-        transform_train = transforms.Compose(tfs)
+        self.file_paths, self.targets = [], []
+        for root, dirs, files in os.walk(data_dir_train):
+            for file in files:
+                file_path = os.path.join(root, file)
+                label = class_perm[int('normal' not in file_path)]
+                self.file_paths.append(file_path)
+                self.targets.append(label)
 
-        trainset = ImageFolder(data_dir_train, transform=transform_train)
-        testset = ImageFolder(data_dir_test, transform=transform_train, target_transform=target_transform)
-    return trainset, testset
+        return self.file_paths, self.targets
 
+        # self.feature_root = os.path.join(root, machine)
+        # os.makedirs(self.feature_root, exist_ok=True)
+        
+        # for s in range(c.n_scales):
+        #     self.data.append(np.load(root + c.class_name + "_scale_" + str(s) + "_" + suffix + ".npy"))
 
+        # audio_folder = os.path.join(root, machine, suffix)
+        # # audio_files = os.listdir(audio_folder, '.wav')
+        # audio_files = [os.path.join(audio_folder, f) for f in os.listdir(audio_folder) if os.path.isfile(os.path.join(audio_folder, f))]
+        # print("files: ", audio_files[:4])
+        # features = []
+        # for audio_file in audio_files[:4]:
+        #     y, sr = librosa.load(audio_file)
+
+        #     # Extract three different scales of MFCCs
+        #     for n_mfcc in [10, 20, 30]:
+        #         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+        #         features.append(mfccs)
+
+        # features = np.array(features, dtype=object)
+        # print(os.path.join(self.feature_root, f"{machine}_{suffix}.npy"))
+        # np.save(os.path.join(self.feature_root, f"{machine}_{suffix}.npy"), features)
+        # self.paths = np.array(audio_files)
+        # self.labels = [audio_path.split('_')[-2] for audio_path in self.paths]
+    def __len__(self):
+        return len(self.file_paths)
+
+    def __getitem__(self, index):
+        # out = list()
+        # for d in self.data:
+        #     y, sr = librosa.load(d[index])
+        #     # Extract three different scales of MFCCs
+        #     for n_mfcc in [10, 20, 30]:
+        #         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+        #         mfccs = torch.FloatTensor(mfccs)
+        #         out.append(mfccs)
+        # # print("result:", out[:5])
+        # return out, self.labels[index]
+        file_path = self.file_paths[index]
+        target = self.targets[index]
+
+        signal, sr = librosa.load(file_path, sr=None, mono=True)
+        mfccs = librosa.feature.mfcc(signal, sr, n_mfcc=self.n_mfcc, n_fft=self.n_fft, hop_length=self.hop_length)
+        mfccs = mfccs.astype('float32')
+        return mfccs, target
+    
 class FeatureDataset(Dataset):
     def __init__(self, root="data/features/" + c.class_name + '/', n_scales=c.n_scales, train=False):
-
         super(FeatureDataset, self).__init__()
         self.data = list()
         self.n_scales = n_scales
@@ -161,7 +257,6 @@ class Score_Observer:
         self.min_loss_score = 0
         self.min_loss = None
         self.last = None
-
     def update(self, score, epoch, print_score=False):
         self.last = score
         if self.max_score == None or score > self.max_score:
