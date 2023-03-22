@@ -496,7 +496,6 @@ class ReversibleGraphNet(nn.Module):
         # order
         self.return_vars.sort(key=lambda i: self.variables_ind[i][0])
         self.input_vars.sort(key=lambda i: self.variables_ind[i][0])
-
         return result
 
     def forward(self, x, rev=False):

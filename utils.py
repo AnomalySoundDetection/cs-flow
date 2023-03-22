@@ -1,3 +1,4 @@
+import glob
 import os
 import torch
 from torchvision import datasets, transforms
@@ -6,11 +7,13 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import Dataset
 import numpy as np
 import librosa
-
+import logging
 import os
 import torchaudio
 from torch.utils.data import Dataset
 
+logging.basicConfig(level=logging.DEBUG, filename="baseline.log")
+logger = logging.getLogger(' ')
 
 # class AudioFolder(Dataset):
 #     def __init__(self, root, transform=None, target_transform=None, n_scales=c.n_scales):
@@ -71,84 +74,84 @@ def cat_maps(z):
     return torch.cat([z[i].reshape(z[i].shape[0], -1) for i in range(len(z))], dim=1)
 
 
-def load_datasets(dataset_path, class_name):
-    # def target_transform(target):
-    #     return class_perm[target]
-    # trainset = []
-    # testset = []
-    # # print("pre_extracted is ", c.pre_extracted)
-    # if c.pre_extracted:
-    trainset = AudioDataset(train=True, root=dataset_path, machine=class_name)
-    testset = AudioDataset(train=False, root=dataset_path, machine=class_name)
-    # else:
-    #     data_dir_train = os.path.join(dataset_path, class_name, 'train')
-    #     data_dir_test = os.path.join(dataset_path, class_name, 'test')
+# def load_datasets(dataset_path, class_name):
+#     # def target_transform(target):
+#     #     return class_perm[target]
+#     # trainset = []
+#     # testset = []
+#     # # print("pre_extracted is ", c.pre_extracted)
+#     # if c.pre_extracted:
+#     trainset = AudioDataset(train=True, root=dataset_path, machine=class_name)
+#     testset = AudioDataset(train=False, root=dataset_path, machine=class_name)
+#     # else:
+#     #     data_dir_train = os.path.join(dataset_path, class_name, 'train')
+#     #     data_dir_test = os.path.join(dataset_path, class_name, 'test')
 
-    #     classes = os.listdir(data_dir_test)
-    #     classes.sort()
-    #     class_perm = list()
-    #     class_idx = 1
-    #     for cl in classes:
-    #         if 'normal' in cl:
-    #             class_perm.append(0)
-    #         else:
-    #             class_perm.append(class_idx)
+#     #     classes = os.listdir(data_dir_test)
+#     #     classes.sort()
+#     #     class_perm = list()
+#     #     class_idx = 1
+#     #     for cl in classes:
+#     #         if 'normal' in cl:
+#     #             class_perm.append(0)
+#     #         else:
+#     #             class_perm.append(class_idx)
 
-    #     file_paths, targets = [], []
-    #     for root, dirs, files in os.walk(data_dir_train):
-    #         for f in files:
-    #             file_path = os.path.join(root, file_path)
-    #             label = class_perm[int('normal' not i file_path)]
-    #             file_paths.append(file_path)
-    #             targets.append(label)
+#     #     file_paths, targets = [], []
+#     #     for root, dirs, files in os.walk(data_dir_train):
+#     #         for f in files:
+#     #             file_path = os.path.join(root, file_path)
+#     #             label = class_perm[int('normal' not i file_path)]
+#     #             file_paths.append(file_path)
+#     #             targets.append(label)
 
-    #     # TODO: resize -> change frames size
-    #     tfs = [transforms.Resize(c.img_size), transforms.ToTensor(), transforms.Normalize(c.norm_mean, c.norm_std)]
-    #     transform_train = transforms.Compose(tfs)
+#     #     # TODO: resize -> change frames size
+#     #     tfs = [transforms.Resize(c.img_size), transforms.ToTensor(), transforms.Normalize(c.norm_mean, c.norm_std)]
+#     #     transform_train = transforms.Compose(tfs)
 
-    #     trainset = ImageFolder(data_dir_train, transform=transform_train)
-    #     testset = ImageFolder(data_dir_test, transform=transform_train, target_transform=target_transform)
-    # # print(len(trainset))
-    return trainset, testset
+#     #     trainset = ImageFolder(data_dir_train, transform=transform_train)
+#     #     testset = ImageFolder(data_dir_test, transform=transform_train, target_transform=target_transform)
+#     # # print(len(trainset))
+#     return trainset, testset
 
 
 
-class AudioDataset(Dataset):
-    def __init__(self, root="data/features/", machine="fan", n_scales=c.n_scales, train=False, n_mfcc=20, n_fft=512, hop_length=256):
-        super(AudioDataset, self).__init__()
-        self.data = list()
-        self.n_scales = n_scales
-        self.train = train
-        self.machine = machine
-        self.n_mfcc = n_mfcc
-        self.n_fft = n_fft
-        self.hop_length = hop_length
-        self.dataset_path = os.path.join(root, machine)
-        suffix = 'train' if train else 'test'
+# class AudioDataset(Dataset):
+#     def __init__(self, root="data/features/", machine="fan", n_scales=c.n_scales, train=False, n_mfcc=20, n_fft=512, hop_length=256):
+#         super(AudioDataset, self).__init__()
+#         self.data = list()
+#         self.n_scales = n_scales
+#         self.train = train
+#         self.machine = machine
+#         self.n_mfcc = n_mfcc
+#         self.n_fft = n_fft
+#         self.hop_length = hop_length
+#         self.dataset_path = os.path.join(root, machine)
+#         suffix = 'train' if train else 'test'
     
-    def _load_files(self):
-        data_dir_train = os.path.join(self.dataset_path, self.class_name, 'train')
-        data_dir_test = os.path.join(self.dataset_path, self.class_name, 'test')
+#     def _load_files(self):
+#         data_dir_train = os.path.join(self.dataset_path, self.class_name, 'train')
+#         data_dir_test = os.path.join(self.dataset_path, self.class_name, 'test')
 
-        classes = os.listdir(data_dir_test)
-        classes.sort()
-        class_perm = list()
-        class_idx = 1
-        for cl in classes:
-            if 'normal' in cl:
-                class_perm.append(0)
-            else:
-                class_perm.append(class_idx)
+#         classes = os.listdir(data_dir_test)
+#         classes.sort()
+#         class_perm = list()
+#         class_idx = 1
+#         for cl in classes:
+#             if 'normal' in cl:
+#                 class_perm.append(0)
+#             else:
+#                 class_perm.append(class_idx)
 
-        self.file_paths, self.targets = [], []
-        for root, dirs, files in os.walk(data_dir_train):
-            for file in files:
-                file_path = os.path.join(root, file)
-                label = class_perm[int('normal' not in file_path)]
-                self.file_paths.append(file_path)
-                self.targets.append(label)
+#         self.file_paths, self.targets = [], []
+#         for root, dirs, files in os.walk(data_dir_train):
+#             for file in files:
+#                 file_path = os.path.join(root, file)
+#                 label = class_perm[int('normal' not in file_path)]
+#                 self.file_paths.append(file_path)
+#                 self.targets.append(label)
 
-        return self.file_paths, self.targets
+#         return self.file_paths, self.targets
 
         # self.feature_root = os.path.join(root, machine)
         # os.makedirs(self.feature_root, exist_ok=True)
@@ -174,27 +177,27 @@ class AudioDataset(Dataset):
         # np.save(os.path.join(self.feature_root, f"{machine}_{suffix}.npy"), features)
         # self.paths = np.array(audio_files)
         # self.labels = [audio_path.split('_')[-2] for audio_path in self.paths]
-    def __len__(self):
-        return len(self.file_paths)
+    # def __len__(self):
+    #     return len(self.file_paths)
 
-    def __getitem__(self, index):
-        # out = list()
-        # for d in self.data:
-        #     y, sr = librosa.load(d[index])
-        #     # Extract three different scales of MFCCs
-        #     for n_mfcc in [10, 20, 30]:
-        #         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-        #         mfccs = torch.FloatTensor(mfccs)
-        #         out.append(mfccs)
-        # # print("result:", out[:5])
-        # return out, self.labels[index]
-        file_path = self.file_paths[index]
-        target = self.targets[index]
+    # def __getitem__(self, index):
+    #     # out = list()
+    #     # for d in self.data:
+    #     #     y, sr = librosa.load(d[index])
+    #     #     # Extract three different scales of MFCCs
+    #     #     for n_mfcc in [10, 20, 30]:
+    #     #         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    #     #         mfccs = torch.FloatTensor(mfccs)
+    #     #         out.append(mfccs)
+    #     # # print("result:", out[:5])
+    #     # return out, self.labels[index]
+    #     file_path = self.file_paths[index]
+    #     target = self.targets[index]
 
-        signal, sr = librosa.load(file_path, sr=None, mono=True)
-        mfccs = librosa.feature.mfcc(signal, sr, n_mfcc=self.n_mfcc, n_fft=self.n_fft, hop_length=self.hop_length)
-        mfccs = mfccs.astype('float32')
-        return mfccs, target
+    #     signal, sr = librosa.load(file_path, sr=None, mono=True)
+    #     mfccs = librosa.feature.mfcc(signal, sr, n_mfcc=self.n_mfcc, n_fft=self.n_fft, hop_length=self.hop_length)
+    #     mfccs = mfccs.astype('float32')
+    #     return mfccs, target
     
 class FeatureDataset(Dataset):
     def __init__(self, root="data/features/" + c.class_name + '/', n_scales=c.n_scales, train=False):
@@ -232,6 +235,18 @@ def make_dataloaders(trainset, testset):
     return trainloader, testloader
 
 
+# def preprocess_batch(data):
+#     '''move data to device and reshape image'''
+#     if c.pre_extracted:
+#         inputs, labels = data
+#         for i in range(len(inputs)):
+#             inputs[i] = inputs[i].to(c.device)
+#         labels = labels.to(c.device)
+#     else:
+#         inputs, labels = data
+#         inputs, labels = inputs.to(c.device), labels.to(c.device)
+#         inputs = inputs.view(-1, *inputs.shape[-3:])
+#     return inputs, labels
 def preprocess_batch(data):
     '''move data to device and reshape image'''
     if c.pre_extracted:
@@ -244,6 +259,7 @@ def preprocess_batch(data):
         inputs, labels = inputs.to(c.device), labels.to(c.device)
         inputs = inputs.view(-1, *inputs.shape[-3:])
     return inputs, labels
+
 
 
 class Score_Observer:
@@ -270,3 +286,70 @@ class Score_Observer:
                                                                                                    self.max_score,
                                                                                                    self.max_epoch,
                                                                                                    self.min_loss_epoch))
+
+########################################################################
+# get the list of wave file paths
+########################################################################
+def file_list_generator(target_dir,
+                        id,
+                        dir_name,
+                        mode,
+                        prefix_normal="normal",
+                        prefix_anomaly="anomaly",
+                        ext="wav"):
+    """
+    target_dir : str
+        base directory path
+    section_name : str
+        section name of audio file in <<dir_name>> directory
+    dir_name : str
+        sub directory name
+    prefix_normal : str (default="normal")
+        normal directory name
+    prefix_anomaly : str (default="anomaly")
+        anomaly directory name
+    ext : str (default="wav")
+        file extension of audio files
+
+    return :
+        if the mode is "development":
+            files : list [ str ]
+                audio file list
+            labels : list [ boolean ]
+                label info. list
+                * normal/anomaly = 0/1
+        if the mode is "evaluation":
+            files : list [ str ]
+                audio file list
+    """
+    logger.info("target_dir : {}".format(target_dir+'\\'))
+
+    # print(dir_name, target_dir)
+    query = os.path.abspath("{target_dir}/{dir_name}/{prefix_normal}_{id}_*.{ext}".format(target_dir=target_dir,
+                                                                                dir_name=dir_name,
+                                                                                id=id,
+                                                                                prefix_normal=prefix_normal,
+                                                                                ext=ext))
+    print(query)
+    normal_files = sorted(glob.glob(query))
+    print('normal files #:', len(normal_files))
+    normal_labels = np.zeros(len(normal_files))
+
+    query = os.path.abspath("{target_dir}/{dir_name}/{prefix_normal}_{id}_*.{ext}".format(target_dir=target_dir,
+                                                                                                    dir_name=dir_name,
+                                                                                                    id=id,
+                                                                                                    prefix_normal=prefix_anomaly,
+                                                                                                    ext=ext))
+    anomaly_files = sorted(glob.glob(query))
+    print('anomaly files #:', len(anomaly_files))
+    anomaly_labels = np.ones(len(anomaly_files))
+
+    files = np.concatenate((normal_files, anomaly_files), axis=0)
+    labels = np.concatenate((normal_labels, anomaly_labels), axis=0)
+    
+    logger.info("#files : {num}".format(num=len(files)))
+    if len(files) == 0:
+        logger.exception("no_wav_file!!")
+    print("\n========================================")
+
+    return files, labels

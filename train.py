@@ -7,11 +7,11 @@ from model import get_cs_flow_model, save_model, FeatureExtractor, nf_forward
 from utils import *
 
 
-def train(train_loader, test_loader):
+def train(train_loader, test_loader, id):
     model = get_cs_flow_model()
     optimizer = torch.optim.Adam(model.parameters(), lr=c.lr_init, eps=1e-04, weight_decay=1e-5)
     model.to(c.device)
-    if not c.pre_extracted:
+    if c.pre_extracted:
         fe = FeatureExtractor()
         fe.eval()
         fe.to(c.device)
@@ -30,7 +30,8 @@ def train(train_loader, test_loader):
             for i, data in enumerate(tqdm(train_loader, disable=c.hide_tqdm_bar)):
                 optimizer.zero_grad()
 
-                inputs, labels = preprocess_batch(data)  # move to device and reshape
+                # inputs, labels = preprocess_batch(data)  # move to device and reshape
+                # inputs = preprocess_batch(data)  # move to device and reshape
                 if not c.pre_extracted:
                     inputs = fe(inputs)
 

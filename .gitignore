@@ -3,3 +3,4 @@ viz/*
 models/*
 *.npy
 *.log
+ResNet38_mAP=0.434.pth

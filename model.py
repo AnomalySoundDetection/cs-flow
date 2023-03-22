@@ -7,6 +7,7 @@ from torch import nn
 from panns_inference import AudioTagging
 import config as c
 from freia_funcs import *
+from PANN_model import load_extractor
 
 WEIGHT_DIR = './weights'
 MODEL_DIR = './models/tmp'
@@ -43,7 +44,9 @@ def nf_forward(model, inputs):
 class FeatureExtractor(nn.Module):
     def __init__(self):
         super(FeatureExtractor, self).__init__()
-        self.feature_extractor = AudioTagging()
+        # self.feature_extractor = AudioTagging()
+        self.feature_extractor = load_extractor()
+
 
     def forward(self, x):
         y = list()
