@@ -24,7 +24,7 @@ from tqdm import tqdm
 import config as c
 import random
 from PANN_model import load_extractor
-from model import get_cs_flow_model, save_model, nf_forward
+from model import get_cs_flow_model, save_model, nf_forward, FeatureExtractor
 from utils import *
 from dataset import *
 import torch
@@ -109,18 +109,53 @@ if __name__ == "__main__":
     print("=====================================")
 
     # load pre-trained feature extractor
-    extractor = load_extractor(sample_rate=c.sample_rate,
-                               window_size=c.n_fft,
-                               hop_size=c.hop_length,
-                               mel_bins=c.n_mels,
-                               fmin=c.fmin,
-                               fmax=c.fmax)
+    extractor = feature_extractor = load_extractor(sample_rate=c.sr_list[0],
+                                                        window_size=c.n_fft,
+                                                        hop_size=c.hop_length,
+                                                        mel_bins=c.n_mels,
+                                                        fmin=c.fmin,
+                                                        fmax=c.fmax[0])
+    extractor1 = feature_extractor = load_extractor(sample_rate=c.sr_list[1],
+                                                    window_size=c.n_fft,
+                                                    hop_size=c.hop_length,
+                                                    mel_bins=c.n_mels,
+                                                    fmin=c.fmin,
+                                                    fmax=c.fmax[1])
+    extractor2 = feature_extractor = load_extractor(sample_rate=c.sr_list[2],
+                                                    window_size=c.n_fft,
+                                                    hop_size=c.hop_length,
+                                                    mel_bins=c.n_mels,
+                                                    fmin=c.fmin,
+                                                    fmax=c.fmax[2])
             
     #extractor = nn.DataParallel(extractor, device_ids=[0, 1])
-    extractor = extractor.to(device=device)
+    extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
     extractor.eval()
+    extractor1.eval()
+    extractor2.eval()
     for param in extractor.parameters():
-            param.requires_grad = False
+        param.requires_grad = False
+    for param in extractor1.parameters():
+        param.requires_grad = False
+    for param in extractor2.parameters():
+        param.requires_grad = False
+
+    # torch.Size([8, 512, 156, 4]) torch.Size([8, 64, 1250, 32]) torch.Size([8, 128, 625, 16]) torch.Size([8, 256, 312, 8]) torch.Size([8, 512, 156, 4])
+    
+    # norms = nn.ModuleList()
+    # # channels = [64, 128, 256]
+    # # sizes = [[625, 32], [312, 16], [156, 8]]
+    # channels = [c.n_feat, c.n_feat, c.n_feat]
+    # sizes = [[39, 4], [78, 4], [156, 4]]
+    # for in_channels, size in zip(channels, sizes):
+    #     norms.append(
+    #         nn.LayerNorm(
+    #             [in_channels, size[0], size[1]],
+    #             elementwise_affine=True,
+    #         )
+    #     )
+    # norms = norms.to(device)
+
     # loop of the base directory
     for idx, machine in enumerate(machine_list):
         print("\n===========================")
@@ -154,13 +189,13 @@ if __name__ == "__main__":
             if os.path.exists(model_file_path):
                 logger.info("model exists")
                 continue
-
             print("\n----------------")
             print("Generating Dataset of Current ID: ", _id)
 
             train_dataset = AudioDataset(data=train_list, _id=_id, root=root_path, sample_rate=c.sample_rate)
             val_dataset = AudioDataset(data=val_list, _id=_id, root=root_path, sample_rate=c.sample_rate)
             
+            # FIXME: modify the dataset!!!
             train_dl = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
             val_dl = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -174,14 +209,13 @@ if __name__ == "__main__":
 
             train_loss_list = []
             val_loss_list = []
-
-            # flow_model = BuildFlow(latent_size=latent_size, num_layers=num_layers)
             flow_model = get_cs_flow_model()
             flow_model = flow_model.to(device)
 
-            optimizer = torch.optim.Adam(flow_model.parameters(), lr=1e-6)
+            # optimizer = torch.optim.Adam(flow_model.parameters(), lr=1e-6)
+            optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
 
-            for epoch in range(1, epochs):
+            for epoch in range(1, epochs+1):
                 train_loss = 0.0
                 val_loss = 0.0
                 print("Epoch: {}".format(epoch))   
@@ -189,43 +223,86 @@ if __name__ == "__main__":
                 flow_model.train()
 
                 for batch in tqdm(train_dl):
-                    optimizer.zero_grad()
 
-                    batch = batch.to(device)
-                    torch.cuda.empty_cache()
-                    feature = extractor(batch)
-                    print(feature.shape)
-                    feature = feature.to(device)
+                    batch0 = batch[0].to(device)
+                    batch1 = batch[1].to(device)
+                    batch2 = batch[2].to(device)
+
+                    # torch.cuda.empty_cache()
+                    f0 = extractor(batch0).to(device)
+                    f1 = extractor1(batch1).to(device)
+                    f2 = extractor2(batch2).to(device)
+
+                    # features = [f2.detach(), f1.detach(), f0.detach()]
+                    # features = [f2, f1, f0]
+                    features = [f2.detach().requires_grad_(True), f1.detach().requires_grad_(True), f0.detach().requires_grad_(True)]
+
+                    # feature0: torch.Size([4, 512, 32, 32])
+                    # feature1: torch.Size([4, 512, 16, 16])
+                    # feature2: torch.Size([4, 512, 8, 8])
+                    
+
+                    # z, jac = nf_forward(flow_model, features)
+                    z, jac = torch.utils.checkpoint.checkpoint(nf_forward, flow_model, features)
+                    # print(z[0].shape, z[1].shape, z[2].shape, len(jac))
                     # exit(1)
-                    z, jac = nf_forward(flow_model, feature)
-                    print(z, jac)
-                    exit(1)
-                    loss = flow_model.forward_kld(feature)
+                    loss = get_loss(z, jac)
 
-                    if ~(torch.isnan(loss) | torch.isinf(loss)):
+                    del features, z, jac, batch, f0, f1, f2
+                    gc.collect()
+                    torch.cuda.empty_cache()
+
+                    # print("loss = ", loss)
+                    # exit(1)
+                    # if ~(torch.isnan(loss) | torch.isinf(loss)):
+                    with torch.autograd.set_detect_anomaly(True):
+                        loss.requires_grad_(True)
+                        optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
+                        # CHECK
 
                         train_loss += loss.item()
 
-                    del batch, feature
-
+                    del batch0, batch1, batch2, loss
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    # exit(1)
+                for param in flow_model.parameters():
+                    print("update the model?", param.grad)
                 train_loss /= len(train_dl)
                 train_loss_list.append(train_loss)
-
+                print("train_loss", train_loss)
                 flow_model.eval()
-                
+
+                # exit(1)
                 with torch.no_grad():
                     for batch in tqdm(val_dl):
 
-                        batch = batch.to(device)
-                        feature = extractor(batch)
-                        #feature = feature.to(device)
+                        batch0 = batch[0].to(device)
+                        batch1 = batch[1].to(device)
+                        batch2 = batch[2].to(device)
 
-                        loss = flow_model.forward_kld(feature)
+                        f0 = extractor(batch0)
+                        f1 = extractor1(batch1)
+                        f2 = extractor2(batch2)
+
+                        f0 = f0.to(device)
+                        f1 = f1.to(device)
+                        f2 = f2.to(device)
+                        features = [f2.detach(), f1.detach(), f0.detach()]
+
+                        del f0, f1, f2
+                        gc.collect()
+                        torch.cuda.empty_cache()
+
+                        # z, jac = torch.utils.checkpoint.checkpoint(nf_forward, flow_model, features)
+                        z, jac = nf_forward(flow_model, features)
+
+                        loss = get_loss(z, jac)
                         val_loss += loss.item()
                         
-                        del batch, feature
+                        del features, z, jac, batch0, batch1, batch2, loss
 
                 val_loss /= len(val_dl)
                 val_loss_list.append(val_loss)
@@ -236,10 +313,11 @@ if __name__ == "__main__":
             visualizer.save_figure(history_img)
 
             torch.save(flow_model.state_dict(), model_file_path)
-            com.logger.info("save_model -> {}".format(model_file_path))
+            print("save_model -> {}".format(model_file_path))
+            # com.logger.info("save_model -> {}".format(model_file_path))
 
             del train_dataset, val_dataset, train_dl, val_dl, flow_model
             
             gc.collect()
-
+            exit(1)
             time.sleep(5)

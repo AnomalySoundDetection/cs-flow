@@ -31,7 +31,6 @@ def get_cs_flow_model(input_dim=c.n_feat):
                            'F_args': {'channels_hidden': c.fc_internal,
                                       'kernel_size': c.kernel_sizes[k], 'block_no': k}},
                           name=F'fc1_{k}'))
-
     nodes.append(OutputNode([nodes[-1].out0], name='output_end0'))
     nodes.append(OutputNode([nodes[-2].out1], name='output_end1'))
     nodes.append(OutputNode([nodes[-3].out2], name='output_end2'))
@@ -44,43 +43,53 @@ def nf_forward(model, inputs):
 class FeatureExtractor(nn.Module):
     def __init__(self):
         super(FeatureExtractor, self).__init__()
-        # self.feature_extractor = AudioTagging()
-        self.feature_extractor = load_extractor()
+        self.feature_extractor = load_extractor(sample_rate=c.sample_rate,
+                                window_size=c.n_fft,
+                                hop_size=c.hop_length,
+                                mel_bins=c.n_mels,
+                                fmin=c.fmin,
+                                fmax=c.fmax)
 
+    def eff_ext(self, x, use_layer=0):
+        print("in feature eff_ext")
+        # x = self.feature_extractor._swish(self.feature_extractor._bn0(self.feature_extractor._conv_stem(x)))
+        x = self.feature_extractor(x)
+        if use_layer == 0:
+            return x
+        else:
+            raise ValueError(f"Invalid use_layer value {use_layer} for PANNs.")
+        # # Blocks
+        # for idx, block in enumerate(self.feature_extractor._blocks):
+        #     drop_connect_rate = self.feature_extractor._global_params.drop_connect_rate
+        #     if drop_connect_rate:
+        #         drop_connect_rate *= float(idx) / len(self.feature_extractor._blocks)  # scale drop connect_rate
+        #     x = block(x, drop_connect_rate=drop_connect_rate)
+        #     if idx == use_layer:
+        #         return x
 
     def forward(self, x):
+        print("in feature forwarddd")
         y = list()
         for s in range(c.n_scales):
-            feat_s = self.feature_extractor.extract_feature(x)
+            print("x shape :", x.shape)
+
+            # (N, C, H, W) as input
+            # N: batch_size，C: channel，H, W: height & width
+            feat_s = F.interpolate(x, size=(c.img_size[0] // (2 ** s), c.img_size[1] // (2 ** s))) if s > 0 else x
+            print("feat_s", feat_s.shape)
+            feat_s = self.eff_ext(feat_s)
+            
+            # feat_s = self.feature_extractor.extract_feature(x)
             y.append(feat_s)
         return y
 
-# old feature extractor (use EfficientNet)
-# class FeatureExtractor(nn.Module):
-#     def __init__(self):
-#         super(FeatureExtractor, self).__init__()
-#         # TODO: chage pretrained network
-#         self.feature_extractor = EfficientNet.from_pretrained('efficientnet-b5')
 
-#     def eff_ext(self, x, use_layer=35):
-#         x = self.feature_extractor._swish(self.feature_extractor._bn0(self.feature_extractor._conv_stem(x)))
-#         # Blocks
-#         for idx, block in enumerate(self.feature_extractor._blocks):
-#             drop_connect_rate = self.feature_extractor._global_params.drop_connect_rate
-#             if drop_connect_rate:
-#                 drop_connect_rate *= float(idx) / len(self.feature_extractor._blocks)  # scale drop connect_rate
-#             x = block(x, drop_connect_rate=drop_connect_rate)
-#             if idx == use_layer:
-#                 return x
-
-#     def forward(self, x):
-#         y = list()
-#         for s in range(c.n_scales):
-#             feat_s = F.interpolate(x, size=(c.img_size[0] // (2 ** s), c.img_size[1] // (2 ** s))) if s > 0 else x
-#             feat_s = self.eff_ext(feat_s)
-
-#             y.append(feat_s)
-#         return y
+    # def forward(self, x):
+    #     y = list()
+    #     for s in range(c.n_scales):
+    #         feat_s = self.feature_extractor.extract_feature(x)
+    #         y.append(feat_s)
+    #     return y
 
 
 def save_model(model, filename):

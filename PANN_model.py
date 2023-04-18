@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 from torchlibrosa.augmentation import SpecAugmentation
+import config as c
+import math
 
 ################################################################
 # Initialize layer and batchNorm layer
@@ -228,6 +230,9 @@ class ResNet38(nn.Module):
         
         super(ResNet38, self).__init__()
 
+        # FIXME: add output size (may need to modify)
+        self.output_dim = sample_rate // 4000
+
         window = 'hann'
         center = True
         pad_mode = 'reflect'
@@ -273,7 +278,6 @@ class ResNet38(nn.Module):
     def forward(self, input, mixup_lambda=None):
         """
         Input: (batch_size, data_length)"""
-
         x = self.spectrogram_extractor(input)   # (batch_size, 1, time_steps, freq_bins)
         x = self.logmel_extractor(x)    # (batch_size, 1, time_steps, mel_bins)
         
@@ -289,15 +293,55 @@ class ResNet38(nn.Module):
         if self.training and mixup_lambda is not None:
             x = do_mixup(x, mixup_lambda)
         """
-
         x = self.conv_block1(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training, inplace=True)
+
         x = self.resnet(x)
         x = F.avg_pool2d(x, kernel_size=(2, 2))
         x = F.dropout(x, p=0.2, training=self.training, inplace=True)
+
+        out = nn.functional.interpolate(x, size=(self.output_dim, self.output_dim))
+
+        return out
         x = self.conv_block_after1(x, pool_size=(1, 1), pool_type='avg')
+        print("x2 shape:", x.shape)
         x = F.dropout(x, p=0.2, training=self.training, inplace=True)
+        print("x3 shape:", x.shape)
+        
         x = torch.mean(x, dim=3)
+        print("x3 shape:", x.shape)
+        return x
+        (x1, _) = torch.max(x, dim=2)
+        x2 = torch.mean(x, dim=2)
+        x = x1 + x2
+        print("embed:", x.shape)
+        x = F.dropout(x, p=0.5, training=self.training)
+        print("drop:", x.shape)
+        x = F.relu_(self.fc1(x))
+        embedding = F.dropout(x, p=0.5, training=self.training)
+        #clipwise_output = torch.sigmoid(self.fc_audioset(x))
+        
+        #output_dict = {'clipwise_output': clipwise_output, 'embedding': embedding}
+        print("embedding shape:", embedding.shape)
+
+        return embedding
+        # x = F.avg_pool2d(x, kernel_size=(2, 2))
+        # print("x1 shape:", x.shape)
+        # x = F.dropout(x, p=0.2, training=self.training, inplace=True)
+        # print("x1-2 shape:", x.shape)
+        # # return x
+        # x = self.conv_block_after1(x, pool_size=(1, 1), pool_type='avg')
+        # print("x2 shape:", x.shape)
+        # x = F.dropout(x, p=0.2, training=self.training, inplace=True)
+        # x = torch.mean(x, dim=3)
+        # print("x3 shape: ", x.shape)
+
+        # # x = x.permute(1, 0, 2)
+        # print("per x3 shape: ", x.shape)
+
+        # return x
+        # return f
+
         
         (x1, _) = torch.max(x, dim=2)
         x2 = torch.mean(x, dim=2)
@@ -309,7 +353,7 @@ class ResNet38(nn.Module):
         
         #output_dict = {'clipwise_output': clipwise_output, 'embedding': embedding}
 
-        return embedding
+        return f
     
 class ResNet22(nn.Module):
     def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin, 
@@ -410,14 +454,13 @@ def load_weight(model, weight_path):
 
     return model
 
-def load_extractor(sample_rate=32000,
+def load_extractor(sample_rate=c.sample_rate,
                    window_size=1024,
                    hop_size=256,
                    mel_bins=64,
                    fmin=50,
                    fmax=14000,
                    weight_path="ResNet38_mAP=0.434.pth"):
-    
     extractor = ResNet38(sample_rate=sample_rate, window_size=window_size, hop_size=hop_size, mel_bins=mel_bins, fmin=fmin, fmax=fmax)
     extractor = load_weight(extractor, weight_path=weight_path)
 

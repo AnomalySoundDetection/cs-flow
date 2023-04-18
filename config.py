@@ -8,10 +8,12 @@ latent_size = 2048
 # feature 
 n_mels = 64
 sample_rate = 32000
+sr_list = [32000, 64000, 128000]
+sr = sample_rate
 n_fft = 1024
 hop_length = 256
 fmin = 50
-fmax = 16000
+fmax = [16000, 32000, 64000]
 
 # device settings
 device = 'cuda'  # or 'cpu'
@@ -34,11 +36,13 @@ machine_type = ["fan", "pump", "slider", "ToyCar", "ToyConveyor", "valve"]
 pre_extracted = True  # were feature preextracted with extract_features?
 
 # img_size = (768, 768)  # image size of highest scale, others are //2, //4
+img_size = (100, 100)
+# img_size
 # assert img_size[0] % 128 == 0 and img_size[1] % 128 == 0, "image width/height should be a multiple of 128"
 
 # frame_size = (768, 768)  # image size of highest scale, others are //2, //4
 # assert frame_size[0] % 128 == 0 and frame_size[1] % 128 == 0, "image width/height should be a multiple of 128"
-frame_size = (960000, 0)
+frame_size = (96000, 0)
 # shape: 320000, 640000, 960000
 
 # img_dims = [3] + list(img_size)
@@ -59,14 +63,14 @@ use_gamma = True
 extractor = "effnetB5"  # feature dataset name (which was used in 'extract_features.py' as 'export_name')
 
 # FIXME: n_feat = 1024 (PANNs ver)
-n_feat = 1024
+n_feat = 512
 # n_feat = {"effnetB5": 304}[extractor]  # dependend from feature extractor
 # map_size = (img_size[0] // 32, img_size[1] // 32)
 # map_size = (frame_size[0] // 32, frame_size[1] // 32)
-map_size = (frame_size[0] // 32, 0)
+map_size = [32, 32]
 
 # dataloader parameters
-batch_size = 8  # actual batch size is this value multiplied by n_transforms(_test)
+batch_size = 4  # actual batch size is this value multiplied by n_transforms(_test)
 kernel_sizes = [3] * (n_coupling_blocks - 1) + [5]
 
 # total epochs = meta_epochs * sub_epochs

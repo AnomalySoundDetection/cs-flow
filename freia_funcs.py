@@ -82,6 +82,7 @@ class CrossConvolutions(nn.Module):
         self.lr = nn.LeakyReLU(self.leaky_slope)
 
     def forward(self, x0, x1, x2):
+        # print("x shape:", x0.shape, x1.shape, x2.shape)
         out0 = self.conv_scale0_0(x0)
         out1 = self.conv_scale1_0(x1)
         out2 = self.conv_scale2_0(x2)
@@ -116,7 +117,6 @@ class ParallelPermute(nn.Module):
 
     def __init__(self, dims_in, seed):
         super(ParallelPermute, self).__init__()
-        # print('dims in', dims_in)
         # exit()
         self.n_inputs = len(dims_in)
         self.in_channels = [dims_in[i][0] for i in range(self.n_inputs)]
@@ -142,6 +142,8 @@ class ParallelPermute(nn.Module):
         return perm, perm_inv
 
     def forward(self, x, rev=False):
+        # x -> x1, x2, x3 ; len(x1) = 8
+        # self.n_inputs = 3
         if not rev:
             return [x[i][:, self.perm[i]] for i in range(self.n_inputs)]
         else:
