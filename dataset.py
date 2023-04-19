@@ -16,24 +16,9 @@ logging.basicConfig(level=logging.DEBUG, filename="baseline.log")
 logger = logging.getLogger(' ')
 
 def load_audio(audio_path, sample_rate):
-    # audio_data, _ = librosa.core.load(audio_path, sr=sample_rate)
     audio_data, _ = librosa.load(audio_path, sr=sample_rate)
-    # mel_spec = librosa.feature.melspectrogram(y=audio_data, sr=sample_rate, n_fft=c.n_fft, hop_length=c.hop_length,
-    #                                        n_mels=c.n_mels, fmin=c.fmin, fmax=c.fmax)
-
-
+    audio_data = (audio_data - audio_data.mean()) / audio_data.std()
     audio_data = torch.FloatTensor(audio_data)
-    # mel_spec = torch.FloatTensor(mel_spec)
-    # mel_spec = mel_spec.unsqueeze(0)
-    # S_dB = librosa.power_to_db(mel_spec, ref=np.max)
-    # print("mel shape is:", mel_spec.shape)
-    # print("shape is:", S_dB.shape)
-
-    # time_steps = mel_spec.shape[1]
-    # mel_spec = mel_spec[:, :time_steps//32*32]
-    # mel_spec = mel_spec.reshape(c.n_mels, -1, 32)
-    # print("shape is:", mel_spec.shape)
-    # print("audio_data shape is:", audio_data.shape)
     return audio_data
 
 
@@ -73,8 +58,6 @@ class AudioDataset(Dataset):
             a_audio.append(audio_data)
         # a_audio = load_audio(f"{file_path}", sample_rate=self.sample_rate)
 
-        # a_audio=torch.cat(a_audio, dim=0)
-        # label_list = torch.cat(label_list , dim=0)
         if  self.train:
             return a_audio
         else:
