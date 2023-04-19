@@ -38,8 +38,10 @@ def load_audio(audio_path, sample_rate):
 
 
 class AudioDataset(Dataset):
-    def __init__(self, data, _id, root, sample_rate=c.sample_rate, n_scales=c.n_scales, train=True):
-        if train:
+    def __init__(self, data=None, _id=None, root=None, sample_rate=c.sample_rate, n_scales=c.n_scales, train=True):
+        if data:
+            self.files = data
+        elif train:
             # root = root + "/train"
             self.files, self.labels = file_list_generator(
                 target_dir=root,

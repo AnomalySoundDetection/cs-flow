@@ -24,12 +24,22 @@ from tqdm import tqdm
 import config as c
 import random
 from PANN_model import load_extractor
-from model import get_cs_flow_model, save_model, nf_forward, FeatureExtractor
+from model import get_cs_flow_model, save_model, nf_forward
 from utils import *
 from dataset import *
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import torch.cuda.memory
+
+if torch.cuda.is_available():
+    # set CUDA allocator
+    torch.cuda.memory.set_per_process_memory_fraction(0.9)
+    # set cudnn flags
+    torch.backends.cudnn.benchmark = True 
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True
 ########################################################################
 
 ########################################################################
@@ -109,27 +119,16 @@ if __name__ == "__main__":
     print("=====================================")
 
     # load pre-trained feature extractor
-    extractor = feature_extractor = load_extractor(sample_rate=c.sr_list[0],
-                                                        window_size=c.n_fft,
-                                                        hop_size=c.hop_length,
-                                                        mel_bins=c.n_mels,
-                                                        fmin=c.fmin,
-                                                        fmax=c.fmax[0])
-    extractor1 = feature_extractor = load_extractor(sample_rate=c.sr_list[1],
+    extractors = feature_extractor = load_extractor(sample_rate=c.sr_list,
                                                     window_size=c.n_fft,
                                                     hop_size=c.hop_length,
                                                     mel_bins=c.n_mels,
                                                     fmin=c.fmin,
-                                                    fmax=c.fmax[1])
-    extractor2 = feature_extractor = load_extractor(sample_rate=c.sr_list[2],
-                                                    window_size=c.n_fft,
-                                                    hop_size=c.hop_length,
-                                                    mel_bins=c.n_mels,
-                                                    fmin=c.fmin,
-                                                    fmax=c.fmax[2])
-            
+                                                    fmax=c.fmax)
+
     #extractor = nn.DataParallel(extractor, device_ids=[0, 1])
-    extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
+    # extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
+    extractor, extractor1, extractor2 = extractors[0].to(device=device), extractors[1].to(device=device), extractors[2].to(device=device)
     extractor.eval()
     extractor1.eval()
     extractor2.eval()
@@ -139,22 +138,6 @@ if __name__ == "__main__":
         param.requires_grad = False
     for param in extractor2.parameters():
         param.requires_grad = False
-
-    # torch.Size([8, 512, 156, 4]) torch.Size([8, 64, 1250, 32]) torch.Size([8, 128, 625, 16]) torch.Size([8, 256, 312, 8]) torch.Size([8, 512, 156, 4])
-    
-    # norms = nn.ModuleList()
-    # # channels = [64, 128, 256]
-    # # sizes = [[625, 32], [312, 16], [156, 8]]
-    # channels = [c.n_feat, c.n_feat, c.n_feat]
-    # sizes = [[39, 4], [78, 4], [156, 4]]
-    # for in_channels, size in zip(channels, sizes):
-    #     norms.append(
-    #         nn.LayerNorm(
-    #             [in_channels, size[0], size[1]],
-    #             elementwise_affine=True,
-    #         )
-    #     )
-    # norms = norms.to(device)
 
     # loop of the base directory
     for idx, machine in enumerate(machine_list):
@@ -175,7 +158,9 @@ if __name__ == "__main__":
         train_list = []
         val_list = []
 
-        for path in data_list:
+        # FIXME: modify the dataset!!!
+        for path in data_list[:1500]:
+        # for path in data_list:
             if random.random() < 0.85:
                 train_list.append(path)
             else:
@@ -194,8 +179,6 @@ if __name__ == "__main__":
 
             train_dataset = AudioDataset(data=train_list, _id=_id, root=root_path, sample_rate=c.sample_rate)
             val_dataset = AudioDataset(data=val_list, _id=_id, root=root_path, sample_rate=c.sample_rate)
-            
-            # FIXME: modify the dataset!!!
             train_dl = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
             val_dl = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -212,7 +195,7 @@ if __name__ == "__main__":
             flow_model = get_cs_flow_model()
             flow_model = flow_model.to(device)
 
-            # optimizer = torch.optim.Adam(flow_model.parameters(), lr=1e-6)
+
             optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
 
             for epoch in range(1, epochs+1):
@@ -222,8 +205,9 @@ if __name__ == "__main__":
 
                 flow_model.train()
 
+                # Training part
                 for batch in tqdm(train_dl):
-
+                    # optimizer.zero_grad()
                     batch0 = batch[0].to(device)
                     batch1 = batch[1].to(device)
                     batch2 = batch[2].to(device)
@@ -232,50 +216,53 @@ if __name__ == "__main__":
                     f0 = extractor(batch0).to(device)
                     f1 = extractor1(batch1).to(device)
                     f2 = extractor2(batch2).to(device)
-
+                    # print("feature shape", f0.shape, f1.shape, f2.shape)
+                    # exit(1)
                     # features = [f2.detach(), f1.detach(), f0.detach()]
-                    # features = [f2, f1, f0]
-                    features = [f2.detach().requires_grad_(True), f1.detach().requires_grad_(True), f0.detach().requires_grad_(True)]
-
+                    features = [f2, f1, f0]
+                    # features = [f2.requires_grad_(True), f1.requires_grad_(True), f0.requires_grad_(True)]
                     # feature0: torch.Size([4, 512, 32, 32])
                     # feature1: torch.Size([4, 512, 16, 16])
                     # feature2: torch.Size([4, 512, 8, 8])
-                    
+                    z, jac = nf_forward(flow_model, features)
 
-                    # z, jac = nf_forward(flow_model, features)
-                    z, jac = torch.utils.checkpoint.checkpoint(nf_forward, flow_model, features)
-                    # print(z[0].shape, z[1].shape, z[2].shape, len(jac))
-                    # exit(1)
                     loss = get_loss(z, jac)
 
-                    del features, z, jac, batch, f0, f1, f2
+                    # loss.detach_()
+                    # loss.detach()
+                    
+                    del batch0, batch1, batch2, features, z, jac, batch, f0, f1, f2
                     gc.collect()
                     torch.cuda.empty_cache()
 
-                    # print("loss = ", loss)
-                    # exit(1)
-                    # if ~(torch.isnan(loss) | torch.isinf(loss)):
+                    optimizer.zero_grad()
                     with torch.autograd.set_detect_anomaly(True):
-                        loss.requires_grad_(True)
-                        optimizer.zero_grad()
                         loss.backward()
-                        optimizer.step()
-                        # CHECK
-
+                        # for param in flow_model.parameters():
+                        #     if param.grad is None:
+                        #         print("Error!!!")
+                        #     # print(param.grad, end=" ")
                         train_loss += loss.item()
+                        loss = None
+                        del loss
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        # exit(1)
+                    optimizer.step()
 
-                    del batch0, batch1, batch2, loss
                     gc.collect()
                     torch.cuda.empty_cache()
                     # exit(1)
-                for param in flow_model.parameters():
-                    print("update the model?", param.grad)
-                train_loss /= len(train_dl)
-                train_loss_list.append(train_loss)
-                print("train_loss", train_loss)
-                flow_model.eval()
+                    # for param in flow_model.parameters():
+                    #     b = param.data
+                    #     break
 
                 # exit(1)
+                train_loss /= len(train_dl)
+                train_loss_list.append(train_loss)
+
+                # Validation part
+                flow_model.eval()
                 with torch.no_grad():
                     for batch in tqdm(val_dl):
 
@@ -308,7 +295,8 @@ if __name__ == "__main__":
                 val_loss_list.append(val_loss)
                 
                 print("Train Loss: {train_loss}, Validation Loss: {val_loss}".format(train_loss=train_loss, val_loss=val_loss))
-            
+                # for param in flow_model.parameters():
+                #     print(param.grad, end=" ")
             visualizer.loss_plot(train_loss_list, val_loss_list)
             visualizer.save_figure(history_img)
 

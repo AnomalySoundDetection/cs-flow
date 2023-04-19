@@ -1,5 +1,6 @@
 '''This Code is based on the FrEIA Framework, source: https://github.com/VLL-HD/FrEIA
 It is a assembly of the necessary modules/functions from FrEIA that are needed for our purposes.'''
+import warnings
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -325,6 +326,8 @@ class Node:
 
             # All outputs could now be computed
             self.computed = [(self.id, i) for i in range(self.n_outputs)]
+
+
             op_list.append((self.id, self.input_vars, self.computed))
 
         # Return the variables you have computed (this happens mulitple times

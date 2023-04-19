@@ -60,10 +60,11 @@ fc_internal = 1024  # * 4 # number of neurons in hidden layers of s-t-networks
 lr_init = 2e-4  # inital learning rate
 use_gamma = True
 
-extractor = "effnetB5"  # feature dataset name (which was used in 'extract_features.py' as 'export_name')
+# extractor = "effnetB5"  # feature dataset name (which was used in 'extract_features.py' as 'export_name')
 
 # FIXME: n_feat = 1024 (PANNs ver)
-n_feat = 512
+# n_feat = 512
+n_feat = 256
 # n_feat = {"effnetB5": 304}[extractor]  # dependend from feature extractor
 # map_size = (img_size[0] // 32, img_size[1] // 32)
 # map_size = (frame_size[0] // 32, frame_size[1] // 32)
@@ -75,8 +76,8 @@ kernel_sizes = [3] * (n_coupling_blocks - 1) + [5]
 
 # total epochs = meta_epochs * sub_epochs
 # evaluation after <sub_epochs> epochs
-meta_epochs = 4  # total epochs = meta_epochs * sub_epochs
-sub_epochs = 60  # evaluate after this number of epochs
+meta_epochs = 100  # total epochs = meta_epochs * sub_epochs
+# sub_epochs = 60  # evaluate after this number of epochs
 
 # output settings
 verbose = True

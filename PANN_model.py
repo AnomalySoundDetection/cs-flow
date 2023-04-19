@@ -296,13 +296,33 @@ class ResNet38(nn.Module):
         x = self.conv_block1(x, pool_size=(2, 2), pool_type='avg')
         x = F.dropout(x, p=0.2, training=self.training, inplace=True)
 
+        f1 = self.resnet.layer1(x)
+        f2 = self.resnet.layer2(f1)
+        f3 = self.resnet.layer3(f2)
+        # print("f3 shape", f3.shape)
+        y = F.avg_pool2d(f3, kernel_size=(2, 2))
+        y = F.dropout(y, p=0.2, training=self.training, inplace=True)
+        # print("y shape", y.shape)        
+        
+        y = F.avg_pool2d(y, kernel_size=(2, 2))
+        y = F.dropout(y, p=0.2, training=self.training, inplace=True)
+        # print("y2 shape", y.shape)
+        out = nn.functional.interpolate(y, size=(self.output_dim, self.output_dim))
+        
+        # torch.Size([4, 256, 8, 8]) torch.Size([4, 256, 16, 16]) torch.Size([4, 256, 32, 32])
+        return out
+
+
         x = self.resnet(x)
+        print("after restnet shape", x.shape)
         x = F.avg_pool2d(x, kernel_size=(2, 2))
         x = F.dropout(x, p=0.2, training=self.training, inplace=True)
+        print("after avg_pool2d", x.shape)
 
         out = nn.functional.interpolate(x, size=(self.output_dim, self.output_dim))
 
-        return out
+        # torch.Size([4, 512, 8, 8]) torch.Size([4, 512, 16, 16]) torch.Size([4, 512, 32, 32])
+        return out 
         x = self.conv_block_after1(x, pool_size=(1, 1), pool_type='avg')
         print("x2 shape:", x.shape)
         x = F.dropout(x, p=0.2, training=self.training, inplace=True)
@@ -459,9 +479,11 @@ def load_extractor(sample_rate=c.sample_rate,
                    hop_size=256,
                    mel_bins=64,
                    fmin=50,
-                   fmax=14000,
+                   fmax=c.fmax,
                    weight_path="ResNet38_mAP=0.434.pth"):
-    extractor = ResNet38(sample_rate=sample_rate, window_size=window_size, hop_size=hop_size, mel_bins=mel_bins, fmin=fmin, fmax=fmax)
-    extractor = load_weight(extractor, weight_path=weight_path)
-
-    return extractor
+    extractors = []
+    for i in range(len(sample_rate)):
+        extractor = ResNet38(sample_rate=sample_rate[i], window_size=window_size, hop_size=hop_size, mel_bins=mel_bins, fmin=fmin, fmax=fmax[i])
+        extractor = load_weight(extractor, weight_path=weight_path)
+        extractors.append(extractor)
+    return extractors
