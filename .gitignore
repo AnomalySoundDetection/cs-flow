@@ -5,3 +5,5 @@ models/*
 *.log
 ResNet38_mAP=0.434.pth
 *.pt
+*.csv
+*.png

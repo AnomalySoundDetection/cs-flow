@@ -8,7 +8,7 @@ import config as c
 import os
 import glob
 import logging
-from utils import file_list_generator
+from utils import file_list_generator, test_file_list_generator
 import numpy as np
 
 
@@ -24,24 +24,17 @@ def load_audio(audio_path, sample_rate):
 
 class AudioDataset(Dataset):
     def __init__(self, data=None, _id=None, root=None, sample_rate=c.sample_rate, n_scales=c.n_scales, train=True):
-        if data:
+        self.labels = []
+        if train:
             self.files = data
-        elif train:
-            # root = root + "/train"
-            self.files, self.labels = file_list_generator(
-                target_dir=root,
-                id=_id,
-                dir_name="train",
-                mode=True
-            )
         else:
             # root = root + "/test"
-            self.files, self.labels = file_list_generator(
-            target_dir=root,
-            id=_id,
-            dir_name="test",
-            mode=True
-            )
+            self.files, self.labels = test_file_list_generator(
+                                        target_dir=root,
+                                        id_name=_id,
+                                        dir_name="test",
+                                        mode=True
+                                    )
         self.train = train
 
         # self.data = [sample for sample in data if _id in sample]
@@ -61,12 +54,8 @@ class AudioDataset(Dataset):
         if  self.train:
             return a_audio
         else:
-            if self.labels[index] == 0:
-                target = torch.zeros([1,3])
-            else:
-                target = torch.ones([1,3])
-            return a_audio, target   
-    
+            # return a_audio, self.labels[index]   
+            return {'audio': a_audio, 'label': self.labels[index]}
         # return audio_data
     def __len__(self):
         return len(self.files)
@@ -88,7 +77,6 @@ def get_machine_id_list(target_dir,
     """
     # create test files
     dir_path = os.path.abspath("{dir}/{dir_type}/*.{ext}".format(dir=target_dir, dir_type=dir_type, ext=ext))
-    #print(dir_path)
     file_paths = sorted(glob.glob(dir_path))
     #print(file_paths)
     # extract id
@@ -115,7 +103,6 @@ def select_dirs(machine, mode=True, dir_type="train"):
         dir_path = os.path.abspath("{base}/{machine}/{dir_type}/*".format(base=c.dataset_path, machine=machine, dir_type=dir_type))
         dirs = sorted(glob.glob(dir_path))
     else:
-        # FIXME: no evl dataset
         logger.info("load_directory <- evaluation")
         dir_path = os.path.abspath("{base}/{machine}/{dir_type}/*".format(base=c.dataset_path, machine=machine, dir_type=dir_type))
         dirs = sorted(glob.glob(dir_path))

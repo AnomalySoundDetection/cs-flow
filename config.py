@@ -16,7 +16,7 @@ fmin = 50
 fmax = [16000, 32000, 64000]
 
 # device settings
-device = 'cuda'  # or 'cpu'
+device = 'cuda:1'  # or 'cpu'
 
 # data settings
 # dataset_path = "data/images"  # parent directory of datasets
@@ -29,19 +29,15 @@ class_name = "fan"  # dataset subdirectory
 
 modelname = "dummy_test"  # export evaluations/logs with this name
 
-dev_directory = "/mnt/HDD2/ASD_team/dev_data/"
-eval_directory = "/mnt/HDD2/ASD_team/eval_data"
+dev_directory = "/mnt/HDD2/ASD_team/dev_data"
+eval_directory = "/mnt/HDD2/ASD_team/test_data"
+model_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/model"
+result_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/result"
+score_export_dir = "./viz/scores"
 machine_type = ["fan", "pump", "slider", "ToyCar", "ToyConveyor", "valve"]
 # pre_extracted = False  # were feature preextracted with extract_features?
 pre_extracted = True  # were feature preextracted with extract_features?
 
-# img_size = (768, 768)  # image size of highest scale, others are //2, //4
-img_size = (100, 100)
-# img_size
-# assert img_size[0] % 128 == 0 and img_size[1] % 128 == 0, "image width/height should be a multiple of 128"
-
-# frame_size = (768, 768)  # image size of highest scale, others are //2, //4
-# assert frame_size[0] % 128 == 0 and frame_size[1] % 128 == 0, "image width/height should be a multiple of 128"
 frame_size = (96000, 0)
 # shape: 320000, 640000, 960000
 
@@ -59,7 +55,7 @@ n_coupling_blocks = 4  # higher = more flexible = more unstable
 fc_internal = 1024  # * 4 # number of neurons in hidden layers of s-t-networks
 lr_init = 2e-4  # inital learning rate
 use_gamma = True
-
+max_fpr = 0.1
 # extractor = "effnetB5"  # feature dataset name (which was used in 'extract_features.py' as 'export_name')
 
 # FIXME: n_feat = 1024 (PANNs ver)

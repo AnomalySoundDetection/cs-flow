@@ -31,6 +31,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.cuda.memory
+import pandas as pd
 
 if torch.cuda.is_available():
     # set CUDA allocator
@@ -104,9 +105,11 @@ if __name__ == "__main__":
     visualizer = visualizer()
 
     # training device
-    device = torch.device('cuda:0')  # default device_ids[0]
+    # device = torch.device('cuda:0')  # default device_ids[0]
+   
 
-    # training info
+    # training info 
+    device = c.device
     epochs = int(c.meta_epochs)
     batch_size = int(c.batch_size)
     latent_size = int(c.latent_size)
@@ -159,7 +162,7 @@ if __name__ == "__main__":
         val_list = []
 
         # FIXME: modify the dataset!!!
-        for path in data_list[:1500]:
+        for path in data_list[:200]:
         # for path in data_list:
             if random.random() < 0.85:
                 train_list.append(path)
@@ -196,6 +199,7 @@ if __name__ == "__main__":
             flow_model = flow_model.to(device)
 
 
+            # optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
             optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
 
             for epoch in range(1, epochs+1):
@@ -204,6 +208,7 @@ if __name__ == "__main__":
                 print("Epoch: {}".format(epoch))   
 
                 flow_model.train()
+                ccc = 0
 
                 # Training part
                 for batch in tqdm(train_dl):
@@ -225,8 +230,10 @@ if __name__ == "__main__":
                     # feature1: torch.Size([4, 512, 16, 16])
                     # feature2: torch.Size([4, 512, 8, 8])
                     z, jac = nf_forward(flow_model, features)
-
+                    print("z, jac", len(z), len(jac))
                     loss = get_loss(z, jac)
+                    print("loss", loss)
+                    # sys.exit(-1)
 
                     # loss.detach_()
                     # loss.detach()
@@ -234,20 +241,21 @@ if __name__ == "__main__":
                     del batch0, batch1, batch2, features, z, jac, batch, f0, f1, f2
                     gc.collect()
                     torch.cuda.empty_cache()
+                    
+                    ccc+=1
+                    if ccc >= 10:
+                        sys.exit(-1)
 
                     optimizer.zero_grad()
                     with torch.autograd.set_detect_anomaly(True):
                         loss.backward()
-                        # for param in flow_model.parameters():
-                        #     if param.grad is None:
-                        #         print("Error!!!")
-                        #     # print(param.grad, end=" ")
+
                         train_loss += loss.item()
                         loss = None
                         del loss
                         gc.collect()
                         torch.cuda.empty_cache()
-                        # exit(1)
+
                     optimizer.step()
 
                     gc.collect()
@@ -277,19 +285,16 @@ if __name__ == "__main__":
                         f0 = f0.to(device)
                         f1 = f1.to(device)
                         f2 = f2.to(device)
-                        features = [f2.detach(), f1.detach(), f0.detach()]
+                        features = [f2, f1, f0]
 
-                        del f0, f1, f2
-                        gc.collect()
-                        torch.cuda.empty_cache()
-
-                        # z, jac = torch.utils.checkpoint.checkpoint(nf_forward, flow_model, features)
                         z, jac = nf_forward(flow_model, features)
 
                         loss = get_loss(z, jac)
                         val_loss += loss.item()
-                        
-                        del features, z, jac, batch0, batch1, batch2, loss
+
+                        del batch0, batch1, batch2, features, z, jac, batch, f0, f1, f2, loss
+                        gc.collect()
+                        torch.cuda.empty_cache()
 
                 val_loss /= len(val_dl)
                 val_loss_list.append(val_loss)
@@ -305,7 +310,7 @@ if __name__ == "__main__":
             # com.logger.info("save_model -> {}".format(model_file_path))
 
             del train_dataset, val_dataset, train_dl, val_dl, flow_model
-            
             gc.collect()
+            torch.cuda.empty_cache()
             exit(1)
             time.sleep(5)

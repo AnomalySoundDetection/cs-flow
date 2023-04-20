@@ -31,11 +31,19 @@ def concat_maps(maps):
     return torch.cat(flat_maps, dim=1)[..., None]
 
 
+# default alpha = 0.5
 def get_loss(z, jac):
     z = torch.cat([z[i].reshape(z[i].shape[0], -1) for i in range(len(z))], dim=1)
     jac = sum(jac)
+    print("z = ", torch.sum(z ** 2, dim=(1,)))
+    print("jac = ", -jac)
     return torch.mean(0.5 * torch.sum(z ** 2, dim=(1,)) - jac) / z.shape[1]
 
+def get_audio_loss(z, jac):
+    batch_size, channels, time_steps = z[0].shape
+    z = torch.cat([z[i].reshape(batch_size, -1) for i in range(len(z))], dim=1)
+    jac = sum(jac)
+    return torch.mean(0.5 * torch.sum(z ** 2, dim=(1,)) - jac) / (channels * time_steps)
 
 def cat_maps(z):
     return torch.cat([z[i].reshape(z[i].shape[0], -1) for i in range(len(z))], dim=1)
@@ -75,19 +83,6 @@ def make_dataloaders(trainset, testset):
                                              drop_last=False)
     return trainloader, testloader
 
-
-# def preprocess_batch(data):
-#     '''move data to device and reshape image'''
-#     if c.pre_extracted:
-#         inputs, labels = data
-#         for i in range(len(inputs)):
-#             inputs[i] = inputs[i].to(c.device)
-#         labels = labels.to(c.device)
-#     else:
-#         inputs, labels = data
-#         inputs, labels = inputs.to(c.device), labels.to(c.device)
-#         inputs = inputs.view(-1, *inputs.shape[-3:])
-#     return inputs, labels
 def preprocess_batch(data):
     '''move data to device and reshape image'''
     if c.pre_extracted:
@@ -192,5 +187,51 @@ def file_list_generator(target_dir,
     if len(files) == 0:
         logger.exception("no_wav_file!!")
     print("\n========================================")
+
+    return files, labels
+
+def test_file_list_generator(target_dir,
+                             id_name,
+                             dir_name="test",
+                             prefix_normal="normal",
+                             prefix_anomaly="anomaly",
+                             ext="wav",
+                             mode=True):
+    # development
+    if mode:
+        normal_files = sorted(
+            glob.glob("{dir}/{dir_name}/{prefix_normal}_{id_name}*.{ext}".format(dir=target_dir,
+                                                                                 dir_name=dir_name,
+                                                                                 prefix_normal=prefix_normal,
+                                                                                 id_name=id_name,
+                                                                                 ext=ext)))
+        normal_labels = np.zeros(len(normal_files))
+        anomaly_files = sorted(
+            glob.glob("{dir}/{dir_name}/{prefix_anomaly}_{id_name}*.{ext}".format(dir=target_dir,
+                                                                                  dir_name=dir_name,
+                                                                                  prefix_anomaly=prefix_anomaly,
+                                                                                  id_name=id_name,
+                                                                                  ext=ext)))
+        anomaly_labels = np.ones(len(anomaly_files))
+        files = np.concatenate((normal_files, anomaly_files), axis=0)
+        labels = np.concatenate((normal_labels, anomaly_labels), axis=0)
+        print("test_file  num : {num}".format(num=len(files)))
+        if len(files) == 0:
+            print("no_wav_file!!")
+        print("\n========================================")
+
+    # evaluation
+    else:
+        files = sorted(
+            glob.glob("{dir}/{dir_name}/*{id_name}*.{ext}".format(dir=target_dir,
+                                                                  dir_name=dir_name,
+                                                                  id_name=id_name,
+                                                                  ext=ext)))
+        labels = None
+
+        print("test_file  num : {num}".format(num=len(files)))
+        if len(files) == 0:
+            print("no_wav_file!!")
+        print("\n=========================================")
 
     return files, labels
