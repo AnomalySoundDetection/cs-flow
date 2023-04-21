@@ -78,7 +78,7 @@ def get_machine_id_list_for_test(target_dir,
         [re.findall('id_[0-9][0-9]', ext_id) for ext_id in file_paths]))))
     return machine_id_list
 
-def compare_histogram(scores, classes, machine_type, thresh=2.5, n_bins=64):
+def compare_histogram(scores, classes, machine_type, _id, thresh=2.5, n_bins=64):
     classes = deepcopy(classes)
     scores = deepcopy(scores)
     classes[classes > 0] = 1
@@ -98,7 +98,7 @@ def compare_histogram(scores, classes, machine_type, thresh=2.5, n_bins=64):
     plt.ylabel('Count (normalized)')
     plt.legend()
     plt.grid(axis='y')
-    plt.savefig(os.path.join(c.score_export_dir, machine_type + '_score_histogram.png'), bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(c.score_export_dir, machine_type + _id + '_score_histogram.png'), bbox_inches='tight', pad_inches=0)
 ########################################################################
 
 
@@ -199,7 +199,7 @@ if __name__ == "__main__":
             # y_pred = [0. for k in test_files]
             # print(test_files[0], root_path)
             # print("in dir", target_dir[500])
-            test_dataset = AudioDataset(data=target_dir, _id=_id, root=root_path, sample_rate=c.sample_rate, train=False)
+            test_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate, train=False)
             test_dl = DataLoader(dataset=test_dataset, batch_size=c.batch_size, shuffle=False)
 
             model.eval()
@@ -217,12 +217,13 @@ if __name__ == "__main__":
                     f2 = extractor2(batch2).to(device)
                     features = [f2, f1, f0]
                     z = model(features)
+                    # z shape =  [[4, 256, 8, 8], [4, 256, 16, 16], [4, 256, 32, 32]]
 
-                    # Merge multiple feature maps into one matrix (z_concat)
+                    # (z_concat): Merge multiple feature maps into one matrix (aggreate and flat)
+                    # get the L2 norm of Z * 0.5
                     z_concat = t2np(concat_maps(z))
-                    # print("z_concat shape", z_concat.shape)
                     nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
-                    # print("result" ,nll_score, labels)
+
                     anomaly_score_list.append(nll_score)
                     test_labels.append(t2np(labels))
 
@@ -245,7 +246,7 @@ if __name__ == "__main__":
             # save_csv(save_file_path=anomaly_score_csv, save_data=anomaly_score_list.astype(np.float32))
             test_labels = np.concatenate(test_labels)
             # compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type)
-            print(len(test_labels), len(anomaly_score_list))
+
             # AUC
             auc = metrics.roc_auc_score(test_labels, anomaly_score_list)
             p_auc = metrics.roc_auc_score(test_labels, anomaly_score_list, max_fpr=c.max_fpr)
@@ -257,5 +258,5 @@ if __name__ == "__main__":
             np.savetxt(anomaly_score_csv, anomaly_score_list.reshape(-1, anomaly_score_list.shape[-1]), delimiter=',')
             # save_csv(save_file_path=anomaly_score_csv, save_data=anomaly_score_list)
             
-            compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type)
+            compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type, _id=_id)
             sys.exit(-1)

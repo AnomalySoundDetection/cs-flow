@@ -23,10 +23,15 @@ def load_audio(audio_path, sample_rate):
 
 
 class AudioDataset(Dataset):
-    def __init__(self, data=None, _id=None, root=None, sample_rate=c.sample_rate, n_scales=c.n_scales, train=True):
+    def __init__(self, _id=None, root=None, sample_rate=c.sample_rate, n_scales=c.n_scales, train=True):
         self.labels = []
         if train:
-            self.files = data
+            self.files, self.labels = file_list_generator(
+                                        target_dir=root,
+                                        id=_id,
+                                        dir_name="train",
+                                        mode=True
+                                    )
         else:
             # root = root + "/test"
             self.files, self.labels = test_file_list_generator(
@@ -36,9 +41,8 @@ class AudioDataset(Dataset):
                                         mode=True
                                     )
         self.train = train
-
-        # self.data = [sample for sample in data if _id in sample]
         print("data len", len(self.files))
+        # print("files:", self.files[0], self.files[-1])
         self.sample_rate = sample_rate
         self.n_scales = n_scales
         

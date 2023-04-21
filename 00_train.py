@@ -29,7 +29,7 @@ from utils import *
 from dataset import *
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import torch.cuda.memory
 import pandas as pd
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         # param["dev_directory"] + "/" + machine
 
         # data_list = select_dirs(param=param, machine=machine)
-        data_list = select_dirs(machine, mode=True, dir_type="train")
+        # data_list = select_dirs(machine, mode=True, dir_type="train")
 
         id_list = get_machine_id_list(target_dir=root_path, dir_type="train")
 
@@ -161,13 +161,13 @@ if __name__ == "__main__":
         train_list = []
         val_list = []
 
-        # FIXME: modify the dataset!!!
-        for path in data_list[:200]:
+        # FIXME: modify the dataset size
         # for path in data_list:
-            if random.random() < 0.85:
-                train_list.append(path)
-            else:
-                val_list.append(path)
+        # # for path in data_list:
+        #     if random.random() < 0.85:
+        #         train_list.append(path)
+        #     else:
+        #         val_list.append(path)
         
         for _id in id_list:
             # generate dataset
@@ -180,8 +180,18 @@ if __name__ == "__main__":
             print("\n----------------")
             print("Generating Dataset of Current ID: ", _id)
 
-            train_dataset = AudioDataset(data=train_list, _id=_id, root=root_path, sample_rate=c.sample_rate)
-            val_dataset = AudioDataset(data=val_list, _id=_id, root=root_path, sample_rate=c.sample_rate)
+            # train_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
+            # val_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
+
+            dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
+
+            train_ratio = 0.85
+            train_size = int(train_ratio * len(dataset))
+            val_size = len(dataset) - train_size
+
+            # spilt ti train and val
+            train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
             train_dl = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
             val_dl = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -198,8 +208,7 @@ if __name__ == "__main__":
             flow_model = get_cs_flow_model()
             flow_model = flow_model.to(device)
 
-
-            # optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
+            # params in paper
             optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
 
             for epoch in range(1, epochs+1):
@@ -208,7 +217,7 @@ if __name__ == "__main__":
                 print("Epoch: {}".format(epoch))   
 
                 flow_model.train()
-                ccc = 0
+                # ccc = 0
 
                 # Training part
                 for batch in tqdm(train_dl):
@@ -230,21 +239,17 @@ if __name__ == "__main__":
                     # feature1: torch.Size([4, 512, 16, 16])
                     # feature2: torch.Size([4, 512, 8, 8])
                     z, jac = nf_forward(flow_model, features)
-                    print("z, jac", len(z), len(jac))
                     loss = get_loss(z, jac)
-                    print("loss", loss)
+                    # print("loss", loss)
                     # sys.exit(-1)
-
-                    # loss.detach_()
-                    # loss.detach()
                     
                     del batch0, batch1, batch2, features, z, jac, batch, f0, f1, f2
                     gc.collect()
                     torch.cuda.empty_cache()
                     
-                    ccc+=1
-                    if ccc >= 10:
-                        sys.exit(-1)
+                    # ccc+=1
+                    # if ccc >= 10:
+                    #     sys.exit(1)
 
                     optimizer.zero_grad()
                     with torch.autograd.set_detect_anomaly(True):
@@ -312,5 +317,5 @@ if __name__ == "__main__":
             del train_dataset, val_dataset, train_dl, val_dl, flow_model
             gc.collect()
             torch.cuda.empty_cache()
-            exit(1)
+            # exit(1)
             time.sleep(5)

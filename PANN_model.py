@@ -230,7 +230,7 @@ class ResNet38(nn.Module):
         
         super(ResNet38, self).__init__()
 
-        # FIXME: add output size (may need to modify)
+        # FIXME: add output size (may need to modify?)
         self.output_dim = sample_rate // 4000
 
         window = 'hann'
