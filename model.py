@@ -3,11 +3,8 @@ import os
 import torch
 import torch.nn.functional as F
 from torch import nn
-# from efficientnet_pytorch import EfficientNet
-from panns_inference import AudioTagging
 import config as c
 from freia_funcs import *
-from PANN_model import load_extractor
 
 WEIGHT_DIR = './weights'
 MODEL_DIR = './models/tmp'

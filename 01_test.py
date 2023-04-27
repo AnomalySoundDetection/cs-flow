@@ -98,7 +98,7 @@ def compare_histogram(scores, classes, machine_type, _id, thresh=2.5, n_bins=64)
     plt.ylabel('Count (normalized)')
     plt.legend()
     plt.grid(axis='y')
-    plt.savefig(os.path.join(c.score_export_dir, machine_type + _id + '_score_histogram.png'), bbox_inches='tight', pad_inches=0)
+    plt.savefig(os.path.join(c.score_export_dir, machine_type + "_" + _id + '_score_histogram.png'), bbox_inches='tight', pad_inches=0)
 ########################################################################
 
 
@@ -111,8 +111,8 @@ if __name__ == "__main__":
     # "evaluation": mode == False
 
     # FIXME: cuda:0
-    device = torch.device('cuda:1')
-    # device = c.device
+    # device = torch.device('cuda:1')
+    device = c.device
 
     mode = False
     if mode is None:
@@ -123,10 +123,11 @@ if __name__ == "__main__":
 
     # # load base directory
     # dirs = select_dirs(machine="fan", mode=mode)
-    machine_list = c.machine_type[:1]
+    machine_list = c.machine_type
 
     # initialize lines in csv for AUC and pAUC
     csv_lines = []
+    AUC_csv = "{result}/AUC_record.csv".format(result=c.result_directory)
 
     # init extractor
     extractors = feature_extractor = load_extractor(sample_rate=c.sr_list,
@@ -166,8 +167,9 @@ if __name__ == "__main__":
             # load model file
             if not os.path.exists(model_file):
                 logger.error("{} model not found ".format(machine_type))
-                sys.exit(-1)
-                # continue
+                # print("{} model not found ".format(machine_type))
+                # sys.exit(-1)
+                continue
             logger.info("model path: {}".format(model_file))
                 
             model = get_cs_flow_model()
@@ -240,8 +242,6 @@ if __name__ == "__main__":
                     #     for i_l, l in enumerate(t2np(labels)):
                     #         # viz_maps([lg[i_l] for lg in likelihood_grouped], c.modelname + '_' + str(c.viz_sample_count), label=l, show_scales = 1)
                     #         c.viz_sample_count += 1
-                #     sys.exit(-1)
-                # sys.exit(-1)
             anomaly_score_list = np.concatenate(anomaly_score_list)
             # save_csv(save_file_path=anomaly_score_csv, save_data=anomaly_score_list.astype(np.float32))
             test_labels = np.concatenate(test_labels)
@@ -256,7 +256,7 @@ if __name__ == "__main__":
             performance.append([auc, p_auc])
 
             np.savetxt(anomaly_score_csv, anomaly_score_list.reshape(-1, anomaly_score_list.shape[-1]), delimiter=',')
-            # save_csv(save_file_path=anomaly_score_csv, save_data=anomaly_score_list)
+            save_csv(save_file_path=AUC_csv, save_data=csv_lines)
+
             
             compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type, _id=_id)
-            sys.exit(-1)
