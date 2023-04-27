@@ -44,40 +44,8 @@ import matplotlib.pyplot as plt
 logging.basicConfig(level=logging.DEBUG, filename="baseline.log")
 logger = logging.getLogger(' ')
 ########################################################################
-
+# function
 ########################################################################
-# 
-########################################################################
-def save_csv(save_file_path,
-             save_data):
-    with open(save_file_path, "w", newline="") as f:
-        writer = csv.writer(f, lineterminator='\n')
-        writer.writerows(save_data)
-
-
-def get_machine_id_list_for_test(target_dir,
-                                 dir_name="test",
-                                 ext="wav"):
-    """
-    target_dir : str
-        base directory path of "dev_data" or "eval_data"
-    test_dir_name : str (default="test")
-        directory containing test data
-    ext : str (default="wav)
-        file extension of audio files
-
-    return :
-        machine_id_list : list [ str ]
-            list of machine IDs extracted from the names of test files
-    """
-    # create test files
-    dir_path = os.path.abspath("{dir}/{dir_name}/*.{ext}".format(dir=target_dir, dir_name=dir_name, ext=ext))
-    file_paths = sorted(glob.glob(dir_path))
-    # extract id
-    machine_id_list = sorted(list(set(itertools.chain.from_iterable(
-        [re.findall('id_[0-9][0-9]', ext_id) for ext_id in file_paths]))))
-    return machine_id_list
-
 def compare_histogram(scores, classes, machine_type, _id, thresh=2.5, n_bins=64):
     classes = deepcopy(classes)
     scores = deepcopy(scores)
@@ -99,8 +67,6 @@ def compare_histogram(scores, classes, machine_type, _id, thresh=2.5, n_bins=64)
     plt.legend()
     plt.grid(axis='y')
     plt.savefig(os.path.join(c.score_export_dir, machine_type + "_" + _id + '_score_histogram.png'), bbox_inches='tight', pad_inches=0)
-########################################################################
-
 
 ########################################################################
 # main 01_test.py
@@ -111,7 +77,6 @@ if __name__ == "__main__":
     # "evaluation": mode == False
 
     # FIXME: cuda:0
-    # device = torch.device('cuda:1')
     device = c.device
 
     mode = False
@@ -121,8 +86,6 @@ if __name__ == "__main__":
     # make output result directory
     os.makedirs(c.model_directory, exist_ok=True)
 
-    # # load base directory
-    # dirs = select_dirs(machine="fan", mode=mode)
     machine_list = c.machine_type
 
     # initialize lines in csv for AUC and pAUC
@@ -185,11 +148,6 @@ if __name__ == "__main__":
 
             target_dir = select_dirs(machine_type, mode=False, dir_type="test")
 
-        # for id_str in machine_id_list:
-            # load test file
-            # test_files, y_true = test_file_list_generator(c.dev_directory+"/"+machine_type, _id)
-
-            # setup anomaly score file path
             anomaly_score_csv = "{result}/anomaly_score_{machine_type}_{id_str}.csv".format(
                                                                                     result=c.result_directory,
                                                                                     machine_type=machine_type,
@@ -198,9 +156,7 @@ if __name__ == "__main__":
             test_labels = []
 
             print("\n============== BEGIN TEST FOR A MACHINE ID ==============")
-            # y_pred = [0. for k in test_files]
-            # print(test_files[0], root_path)
-            # print("in dir", target_dir[500])
+
             test_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate, train=False)
             test_dl = DataLoader(dataset=test_dataset, batch_size=c.batch_size, shuffle=False)
 
@@ -232,20 +188,8 @@ if __name__ == "__main__":
                     del batch_dict, batch, labels, batch0, batch1, batch2, f0, f1, f2, z
                     gc.collect()
                     torch.cuda.empty_cache()
-                    # if localize:
-                    #     z_grouped = list()
-                    #     likelihood_grouped = list()
-                    #     for i in range(len(z)):
-                    #         z_grouped.append(z[i].view(-1, *z[i].shape[1:]))
-                    #         likelihood_grouped.append(torch.mean(z_grouped[-1] ** 2, dim=(1,)))
-                    #     all_maps.extend(likelihood_grouped[0])
-                    #     for i_l, l in enumerate(t2np(labels)):
-                    #         # viz_maps([lg[i_l] for lg in likelihood_grouped], c.modelname + '_' + str(c.viz_sample_count), label=l, show_scales = 1)
-                    #         c.viz_sample_count += 1
             anomaly_score_list = np.concatenate(anomaly_score_list)
-            # save_csv(save_file_path=anomaly_score_csv, save_data=anomaly_score_list.astype(np.float32))
             test_labels = np.concatenate(test_labels)
-            # compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type)
 
             # AUC
             auc = metrics.roc_auc_score(test_labels, anomaly_score_list)

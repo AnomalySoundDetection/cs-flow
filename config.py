@@ -18,8 +18,6 @@ fmax = [16000, 32000, 64000]
 # device settings
 device = 'cuda:1'  # or 'cpu'
 
-# data settings
-# dataset_path = "data/images"  # parent directory of datasets
 dataset_path = "/mnt/HDD2/ASD_team/dev_data"
 # evl_dataset_path = "/mnt/HDD2/ASD_team/dev_data"
 
