@@ -34,7 +34,8 @@ from torchsummary import summary
 from AST_model import load_extractor
 from model import get_cs_flow_model
 from utils import *
-from dataset import *
+# from dataset import *
+from dataset_v2 import *
 import logging
 from torch.utils.data import DataLoader
 from copy import deepcopy
@@ -93,13 +94,16 @@ if __name__ == "__main__":
     AUC_csv = "{result}/AUC_record.csv".format(result=c.result_directory)
 
     # init extractor
-    extractors = feature_extractor = load_extractor(sample_rate=c.sr_list,
-                                                    window_size=c.n_fft,
-                                                    hop_size=c.hop_length,
-                                                    mel_bins=c.n_mels,
-                                                    fmin=c.fmin,
-                                                    fmax=c.fmax)
-    extractor, extractor1, extractor2 = extractors[0].to(device=device), extractors[1].to(device=device), extractors[2].to(device=device)
+    # extractors = feature_extractor = load_extractor(sample_rate=c.sr_list,
+    #                                                 window_size=c.n_fft,
+    #                                                 hop_size=c.hop_length,
+    #                                                 mel_bins=c.n_mels,
+    #                                                 fmin=c.fmin,
+    #                                                 fmax=c.fmax)
+    extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
+    extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
+    extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
+    extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
     extractor.eval()
     extractor1.eval()
     extractor2.eval()
@@ -153,18 +157,20 @@ if __name__ == "__main__":
                                                                                     machine_type=machine_type,
                                                                                     id_str=_id)
             anomaly_score_list = []
-            test_labels = []
+            # test_labels = []
 
             print("\n============== BEGIN TEST FOR A MACHINE ID ==============")
-
-            test_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate, train=False)
+            data_list, test_labels = test_file_list_generator(target_dir=root_path, id_name=_id, dir_name="test", mode=True)
+            test_dataset = AudioDataset(data=data_list, _id=_id, root=root_path, frame_length=c.frame_length, shift_length=c.shift_length, audio_conf=c.audio_conf)
             test_dl = DataLoader(dataset=test_dataset, batch_size=c.batch_size, shuffle=False)
-
+            # print(len(y_true), print(len(test_dl)))
             model.eval()
             with torch.no_grad():
-                for batch_dict in tqdm(test_dl):
-                    batch = batch_dict['audio']
-                    labels  = batch_dict['label']
+                for batch in tqdm(test_dl):
+                    # print("batch", len(batch))
+                    # sys.exit(1)
+                    # batch = batch_dict['audio']
+                    # labels  = batch_dict['label']
 
                     batch0 = batch[0].to(device)
                     batch1 = batch[1].to(device)
@@ -183,13 +189,16 @@ if __name__ == "__main__":
                     nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
 
                     anomaly_score_list.append(nll_score)
-                    test_labels.append(t2np(labels))
+                    # test_labels.append(t2np(labels))
 
-                    del batch_dict, batch, labels, batch0, batch1, batch2, f0, f1, f2, z
+                    # print("score", nll_score)
+
+                    del batch, batch0, batch1, batch2, f0, f1, f2, z
                     gc.collect()
                     torch.cuda.empty_cache()
+                    # sys.exit(1)
             anomaly_score_list = np.concatenate(anomaly_score_list)
-            test_labels = np.concatenate(test_labels)
+            # test_labels = np.concatenate(y_true)
 
             # AUC
             auc = metrics.roc_auc_score(test_labels, anomaly_score_list)
@@ -204,3 +213,4 @@ if __name__ == "__main__":
 
             
             compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type, _id=_id)
+            sys.exit(1)
