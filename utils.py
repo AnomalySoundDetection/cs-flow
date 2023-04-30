@@ -1,5 +1,7 @@
 import glob
+import itertools
 import os
+import re
 import torch
 import config as c
 import numpy as np
@@ -7,6 +9,7 @@ import librosa
 import logging
 import os
 import torchaudio
+import csv
 
 logging.basicConfig(level=logging.DEBUG, filename="baseline.log")
 logger = logging.getLogger(' ')
@@ -150,3 +153,51 @@ def save_csv(save_file_path,
     with open(save_file_path, "w", newline="") as f:
         writer = csv.writer(f, lineterminator='\n')
         writer.writerows(save_data)
+
+def select_dirs(machine, mode=True, dir_type="train"):
+    """
+    param : dict
+        baseline.yaml data
+
+    return :
+        if active type the development :
+            dirs :  list [ str ]
+                load base directory list of dev_data
+        if active type the evaluation :
+            dirs : list [ str ]
+                load base directory list of eval_data
+    """
+    if mode:
+        logger.info("load_directory <- development")
+        dir_path = os.path.abspath("{base}/{machine}/{dir_type}/*".format(base=c.dataset_path, machine=machine, dir_type=dir_type))
+        dirs = sorted(glob.glob(dir_path))
+    else:
+        logger.info("load_directory <- evaluation")
+        dir_path = os.path.abspath("{base}/{machine}/{dir_type}/*".format(base=c.dataset_path, machine=machine, dir_type=dir_type))
+        dirs = sorted(glob.glob(dir_path))
+    return dirs
+
+def get_machine_id_list(target_dir,
+                        dir_type="test",
+                        ext="wav"):
+    """
+    target_dir : str
+        base directory path of "dev_data" or "eval_data"
+    test_dir_name : str (default="test")
+        directory containing test data
+    ext : str (default="wav)
+        file extension of audio files
+    return :
+        machine_id_list : list [ str ]
+            list of machine IDs extracted from the names of test files
+            ex. id_00, id_02
+    """
+    # create test files
+    dir_path = os.path.abspath("{dir}/{dir_type}/*.{ext}".format(dir=target_dir, dir_type=dir_type, ext=ext))
+    file_paths = sorted(glob.glob(dir_path))
+    #print(file_paths)
+    # extract id
+    machine_id_list = sorted(list(set(itertools.chain.from_iterable(
+        [re.findall('id_[0-9][0-9]', ext_id) for ext_id in file_paths]))))
+    
+    return machine_id_list

@@ -23,10 +23,11 @@ import numpy as np
 from tqdm import tqdm
 import config as c
 import random
-from PANN_model import load_extractor
+from AST_model import load_extractor
 from model import get_cs_flow_model, save_model, nf_forward
 from utils import *
-from dataset import *
+# from dataset import *
+from dataset_v2 import *
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
@@ -122,16 +123,13 @@ if __name__ == "__main__":
     print("=====================================")
 
     # load pre-trained feature extractor
-    extractors = feature_extractor = load_extractor(sample_rate=c.sr_list,
-                                                    window_size=c.n_fft,
-                                                    hop_size=c.hop_length,
-                                                    mel_bins=c.n_mels,
-                                                    fmin=c.fmin,
-                                                    fmax=c.fmax)
+    extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
+    extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
+    extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
 
     #extractor = nn.DataParallel(extractor, device_ids=[0, 1])
     # extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
-    extractor, extractor1, extractor2 = extractors[0].to(device=device), extractors[1].to(device=device), extractors[2].to(device=device)
+    # extractor, extractor1, extractor2 = extractors[0].to(device=device), extractors[1].to(device=device), extractors[2].to(device=device)
     extractor.eval()
     extractor1.eval()
     extractor2.eval()
@@ -158,10 +156,9 @@ if __name__ == "__main__":
         print("Current Machine: ", machine)
         print("Machine ID List: ", id_list)
 
-        train_list = []
-        val_list = []
+        # train_list, val_list = [], []
 
-        # FIXME: modify the dataset size
+        # # FIXME: modify the dataset size
         # for path in data_list:
         # # for path in data_list:
         #     if random.random() < 0.85:
@@ -173,27 +170,38 @@ if __name__ == "__main__":
             # generate dataset
 
             model_file_path = "{model}/model_{machine}_{_id}.pt".format(model=c.model_directory, machine=machine, _id=_id)
-
             if os.path.exists(model_file_path):
                 logger.info("model exists")
                 continue
             print("\n----------------")
             print("Generating Dataset of Current ID: ", _id)
+            data_list, _ = file_list_generator(target_dir=root_path, id=_id, dir_name="train", mode=True)
+            
+            train_list, val_list = [], []
+            for path in data_list:
+            # for path in data_list:
+                if random.random() < 0.85:
+                    train_list.append(path)
+                else:
+                    val_list.append(path)
 
+            # old dataset
             # train_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
             # val_dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
 
-            dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
-
-            train_ratio = 0.85
-            train_size = int(train_ratio * len(dataset))
-            val_size = len(dataset) - train_size
+            # dataset = AudioDataset(_id=_id, root=root_path, sample_rate=c.sample_rate)
+            train_dataset = AudioDataset(data=train_list, _id=_id, root=root_path, frame_length=c.frame_length, shift_length=c.shift_length, audio_conf=c.audio_conf)
+            val_dataset = AudioDataset(data=val_list, _id=_id, root=root_path, frame_length=c.frame_length, shift_length=c.shift_length, audio_conf=c.val_audio_conf)
+            # train_ratio = 0.85
+            # train_size = int(train_ratio * len(dataset))
+            # val_size = len(dataset) - train_size
 
             # spilt ti train and val
-            train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+            # train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
             train_dl = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
             val_dl = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=False)
+            print(len(train_dataset), len(val_dataset))
 
             print("------ DONE -------")
 
@@ -225,14 +233,16 @@ if __name__ == "__main__":
                     batch0 = batch[0].to(device)
                     batch1 = batch[1].to(device)
                     batch2 = batch[2].to(device)
+                    # print("batch shape", batch0.shape, batch1.shape, batch2.shape)
+                    # sys.exit(1)
 
                     # torch.cuda.empty_cache()
                     f0 = extractor(batch0).to(device)
                     f1 = extractor1(batch1).to(device)
                     f2 = extractor2(batch2).to(device)
                     # print("feature shape", f0.shape, f1.shape, f2.shape)
-                    # exit(1)
-                    # features = [f2.detach(), f1.detach(), f0.detach()]
+                    # print("feature shape", f0.shape)
+                    # sys.exit(1)
                     features = [f2, f1, f0]
                     # features = [f2.requires_grad_(True), f1.requires_grad_(True), f0.requires_grad_(True)]
                     # feature0: torch.Size([4, 512, 32, 32])
@@ -265,6 +275,7 @@ if __name__ == "__main__":
 
                     gc.collect()
                     torch.cuda.empty_cache()
+                    # sys.exit(1)
                     # exit(1)
                     # for param in flow_model.parameters():
                     #     b = param.data
@@ -317,5 +328,5 @@ if __name__ == "__main__":
             del train_dataset, val_dataset, train_dl, val_dl, flow_model
             gc.collect()
             torch.cuda.empty_cache()
-            # exit(1)
+            exit(1)
             time.sleep(5)

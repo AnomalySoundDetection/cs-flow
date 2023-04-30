@@ -7,16 +7,17 @@ latent_size = 2048
 
 # feature 
 n_mels = 64
-sample_rate = 32000
-sr_list = [32000, 64000, 128000]
+sample_rate = 16000
+sr_list = [16000, 32000, 64000]
 sr = sample_rate
 n_fft = 1024
 hop_length = 256
 fmin = 50
-fmax = [16000, 32000, 64000]
-
+fmax = [8000, 16000, 32000]
+frame_length = 25
+shift_length = 10
 # device settings
-device = 'cuda:1'  # or 'cpu'
+device = 'cuda:0'  # or 'cpu'
 
 dataset_path = "/mnt/HDD2/ASD_team/dev_data"
 # evl_dataset_path = "/mnt/HDD2/ASD_team/dev_data"
@@ -37,11 +38,11 @@ machine_type = [ "slider", "pump", "valve", "fan"]
 # pre_extracted = False  # were feature preextracted with extract_features?
 pre_extracted = True  # were feature preextracted with extract_features?
 
-frame_size = (96000, 0)
-# shape: 320000, 640000, 960000
+# frame_size = (96000, 0)
+# # shape: 320000, 640000, 960000
 
-# img_dims = [3] + list(img_size)
-img_dims = [3] + list(frame_size)
+# # img_dims = [3] + list(img_size)
+# img_dims = [3] + list(frame_size)
 
 # transformation settings
 norm_mean, norm_std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
@@ -79,4 +80,12 @@ verbose = True
 hide_tqdm_bar = True
 save_model = True
 
+# audio config
+audio_conf = {'num_mel_bins': 64, 'target_length': 1024, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': 'dcase', 
+                'mode': 'train', 'mean': -4.2677393, 'std': 4.5689974, 'noise': False, 'sample_rate': 16000}
 
+val_audio_conf = {'num_mel_bins': 64, 'target_length': 1024, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': 'dcase', 
+                'mode': 'train', 'mean': -4.2677393, 'std': 4.5689974, 'noise': False, 'sample_rate': 16000}
+
+test_audio_conf = {'num_mel_bins': 64, 'target_length': 1024, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': 'dcase', 
+                'mode': 'test', 'mean': -4.2677393, 'std': 4.5689974, 'noise': False, 'sample_rate': 16000}

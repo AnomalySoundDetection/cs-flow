@@ -31,7 +31,7 @@ from sklearn import metrics
 # original lib
 import config as c
 from torchsummary import summary
-from PANN_model import load_extractor
+from AST_model import load_extractor
 from model import get_cs_flow_model
 from utils import *
 from dataset import *
