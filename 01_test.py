@@ -12,7 +12,6 @@ import os
 import glob
 import csv
 import re
-import itertools
 import sys
 import torch
 import gc
@@ -211,6 +210,9 @@ if __name__ == "__main__":
             np.savetxt(anomaly_score_csv, anomaly_score_list.reshape(-1, anomaly_score_list.shape[-1]), delimiter=',')
             save_csv(save_file_path=AUC_csv, save_data=csv_lines)
 
+            del test_dataset, test_dl, model
+            gc.collect()
+            torch.cuda.empty_cache()
             
             compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type, _id=_id)
             sys.exit(1)
