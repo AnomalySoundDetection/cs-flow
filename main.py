@@ -423,5 +423,9 @@ if __name__ == "__main__":
 
             
             compare_histogram(anomaly_score_list, test_labels, machine_type=machine, _id=_id)
+
+            del flow_model, test_dataset, test_dl
+            gc.collect()
+            torch.cuda.empty_cache()
             # sys.exit(1)
             time.sleep(5)
