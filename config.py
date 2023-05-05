@@ -22,19 +22,17 @@ device = 'cuda:0'  # or 'cpu'
 dataset_path = "/mnt/HDD2/ASD_team/dev_data"
 # evl_dataset_path = "/mnt/HDD2/ASD_team/dev_data"
 
-# class_name = "dummy_data"  # dataset subdirectory
-# FIXME: be a list
-class_name = "fan"  # dataset subdirectory
-
 modelname = "dummy_test"  # export evaluations/logs with this name
 
 dev_directory = "/mnt/HDD2/ASD_team/dev_data"
 eval_directory = "/mnt/HDD2/ASD_team/test_data"
 model_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/model"
 result_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/result"
+checkpoint_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/checkpoint"
 score_export_dir = "./viz/scores"
 # machine_type = [ "slider", "fan", "pump", "ToyCar", "ToyConveyor", "valve"]
-machine_type = [ "slider", "pump", "valve", "fan"]
+# machine_type = [ "slider", "pump", "valve", "fan"]
+machine_type = [ "slider", "pump", "valve"]
 # pre_extracted = False  # were feature preextracted with extract_features?
 pre_extracted = True  # were feature preextracted with extract_features?
 

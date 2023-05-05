@@ -40,7 +40,6 @@ from torch.utils.data import DataLoader
 from copy import deepcopy
 import matplotlib.pyplot as plt
 
-
 logging.basicConfig(level=logging.DEBUG, filename="baseline.log")
 logger = logging.getLogger(' ')
 ########################################################################
@@ -99,19 +98,18 @@ if __name__ == "__main__":
     #                                                 mel_bins=c.n_mels,
     #                                                 fmin=c.fmin,
     #                                                 fmax=c.fmax)
-    extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
-    extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
-    extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
-    extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
-    extractor.eval()
-    extractor1.eval()
-    extractor2.eval()
-    for param in extractor.parameters():
-        param.requires_grad = False
-    for param in extractor1.parameters():
-        param.requires_grad = False
-    for param in extractor2.parameters():
-        param.requires_grad = False
+    # extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
+    # extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
+    # extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
+    # extractor.eval()
+    # extractor1.eval()
+    # extractor2.eval()
+    # for param in extractor.parameters():
+    #     param.requires_grad = False
+    # for param in extractor1.parameters():
+    #     param.requires_grad = False
+    # for param in extractor2.parameters():
+    #     param.requires_grad = False
 
 
     # loop of the base directory
@@ -137,11 +135,28 @@ if __name__ == "__main__":
                 # sys.exit(-1)
                 continue
             logger.info("model path: {}".format(model_file))
-                
-            model = get_cs_flow_model()
-            model.load_state_dict(torch.load(model_file))
             
+            test_model = torch.load(model_file)
+            model = get_cs_flow_model()
+            model.load_state_dict(test_model['flow_state_dict'])
             model = model.to(device)
+
+            extractor = load_extractor(tdim=1024, fdim=64, target_size=8)
+            extractor1 = load_extractor(tdim=1024, fdim=128, target_size=16)
+            extractor2 = load_extractor(tdim=1024, fdim=256, target_size=32)
+            extractor.load_state_dict(test_model['ast0_state_dict'])
+            extractor1.load_state_dict(test_model['ast1_state_dict'])
+            extractor2.load_state_dict(test_model['ast2_state_dict'])
+            extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
+            extractor.eval()
+            extractor1.eval()
+            extractor2.eval()
+            for param in extractor.parameters():
+                param.requires_grad = False
+            for param in extractor1.parameters():
+                param.requires_grad = False
+            for param in extractor2.parameters():
+                param.requires_grad = False
 
         # if mode:
             # results by type
@@ -180,13 +195,28 @@ if __name__ == "__main__":
                     f2 = extractor2(batch2).to(device)
                     features = [f2, f1, f0]
                     z = model(features)
-                    # z shape =  [[4, 256, 8, 8], [4, 256, 16, 16], [4, 256, 32, 32]]
 
-                    # (z_concat): Merge multiple feature maps into one matrix (aggreate and flat)
                     # get the L2 norm of Z * 0.5
                     z_concat = t2np(concat_maps(z))
-                    nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
 
+                    z0 = z[0]
+                    z1 = z[1]
+                    z2 = z[2]
+                    z0 = t2np(flat(z0))
+                    z1 = t2np(flat(z1))
+                    z2 = t2np(flat(z2))
+                    # flat_maps = [z0, z1, z2]
+                    # zz = t2np(torch.cat(flat_maps, dim=1)[..., None])
+                    # nll_score = np.mean(zz ** 2 / 2, axis=(1, 2))
+                    z0_score = np.mean(z0 ** 2 / 2, axis=(1))
+                    z1_score = np.mean(z1 ** 2 / 2, axis=(1))
+                    z2_score = np.mean(z2 ** 2 / 2, axis=(1))
+                    # print("z0_score", z0_score.shape, z1_score.shape)
+                    # nll_score = (z0_score + z1_score + z2_score) / 3
+                    nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
+                    # nll_score = z2_score
+                    # print(z0_score, z1_score, z2_score, nll_score)
+                    # sys.exit(1)
                     anomaly_score_list.append(nll_score)
                     # test_labels.append(t2np(labels))
 

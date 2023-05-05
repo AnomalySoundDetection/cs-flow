@@ -33,6 +33,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 import torch.cuda.memory
 import pandas as pd
+from sklearn import metrics
 
 if torch.cuda.is_available():
     # set CUDA allocator
@@ -122,23 +123,19 @@ if __name__ == "__main__":
     print("Train Machine List: ", machine_list)
     print("=====================================")
 
-    # load pre-trained feature extractor
-    extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
-    extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
-    extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
-
-    #extractor = nn.DataParallel(extractor, device_ids=[0, 1])
-    # extractor, extractor1, extractor2 = extractor.to(device=device), extractor1.to(device=device), extractor2.to(device=device)
-    # extractor, extractor1, extractor2 = extractors[0].to(device=device), extractors[1].to(device=device), extractors[2].to(device=device)
-    extractor.eval()
-    extractor1.eval()
-    extractor2.eval()
-    for param in extractor.parameters():
-        param.requires_grad = False
-    for param in extractor1.parameters():
-        param.requires_grad = False
-    for param in extractor2.parameters():
-        param.requires_grad = False
+    # # load pre-trained feature extractor
+    # extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
+    # extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
+    # extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
+    # extractor.eval()
+    # extractor1.eval()
+    # extractor2.eval()
+    # for param in extractor.parameters():
+    #     param.requires_grad = False
+    # for param in extractor1.parameters():
+    #     param.requires_grad = False
+    # for param in extractor2.parameters():
+    #     param.requires_grad = False
 
     # loop of the base directory
     for idx, machine in enumerate(machine_list):
@@ -170,13 +167,16 @@ if __name__ == "__main__":
             # generate dataset
 
             model_file_path = "{model}/model_{machine}_{_id}.pt".format(model=c.model_directory, machine=machine, _id=_id)
+            checkpoint_path = "{checkpoint}/checkpoint_{machine}_{_id}.pt".format(checkpoint=c.checkpoint_directory, machine=machine, _id=_id)
+            # FE0_file_path = "{model}/FE0_{machine}_{_id}.pt".format(model=c.model_directory, machine=machine, _id=_id)
+            # FE1_file_path = "{model}/FE1_{machine}_{_id}.pt".format(model=c.model_directory, machine=machine, _id=_id)
+            # FE2_file_path = "{model}/FE2_{machine}_{_id}.pt".format(model=c.model_directory, machine=machine, _id=_id)
             if os.path.exists(model_file_path):
                 logger.info("model exists")
                 continue
             print("\n----------------")
             print("Generating Dataset of Current ID: ", _id)
             data_list, _ = file_list_generator(target_dir=root_path, id=_id, dir_name="train", mode=True)
-            
             train_list, val_list = [], []
             for path in data_list:
             # for path in data_list:
@@ -213,37 +213,79 @@ if __name__ == "__main__":
 
             train_loss_list = []
             val_loss_list = []
+            
+            # model 
             flow_model = get_cs_flow_model()
-            flow_model = flow_model.to(device)
 
+            # FE
+            extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8)
+            extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16)
+            extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32)
+            
             # params in paper
             optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
+            
+            start_epoch = 1
+            
+            # load from checkpoint
+            if os.path.exists(checkpoint_path):
+                checkpoint = torch.load(checkpoint_path)
+                print("Load model from Epoch {}".format(checkpoint['epoch']))
+                start_epoch = checkpoint['epoch']
+                flow_model.load_state_dict(checkpoint['flow_state_dict'])
+                extractor.load_state_dict(checkpoint['ast0_state_dict'])
+                extractor1.load_state_dict(checkpoint['ast1_state_dict'])
+                extractor2.load_state_dict(checkpoint['ast2_state_dict'])
+                
+                optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-            for epoch in range(1, epochs+1):
+            flow_model = flow_model.to(device)
+            extractor = extractor.to(device)
+            extractor1 = extractor1.to(device)
+            extractor2 = extractor2.to(device)
+            extractor.eval()
+            extractor1.eval()
+            extractor2.eval()
+            for param in extractor.parameters():
+                param.requires_grad = False
+            for param in extractor1.parameters():
+                param.requires_grad = False
+            for param in extractor2.parameters():
+                param.requires_grad = False
+
+            times = 0
+            original_anomaly_score = 1
+            
+            for epoch in range(start_epoch, epochs+1):
+                extractor.eval()
+                extractor1.eval()
+                extractor2.eval()
+                flow_model.train()
+
                 train_loss = 0.0
                 val_loss = 0.0
                 print("Epoch: {}".format(epoch))   
 
-                flow_model.train()
                 # ccc = 0
 
                 # Training part
-                for batch in tqdm(train_dl):
-                    # optimizer.zero_grad()
-                    batch0 = batch[0].to(device)
-                    batch1 = batch[1].to(device)
-                    batch2 = batch[2].to(device)
-                    # print("batch shape", batch0.shape, batch1.shape, batch2.shape)
-                    # sys.exit(1)
+                for batch in tqdm(train_dl):                
+                    with torch.no_grad():
+                        batch0 = batch[0].to(device)
+                        batch1 = batch[1].to(device)
+                        batch2 = batch[2].to(device)
+                        # print("batch shape", batch0.shape, batch1.shape, batch2.shape)
+                        # sys.exit(1)
 
-                    # torch.cuda.empty_cache()
-                    f0 = extractor(batch0).to(device)
-                    f1 = extractor1(batch1).to(device)
-                    f2 = extractor2(batch2).to(device)
-                    # print("feature shape", f0.shape, f1.shape, f2.shape)
-                    # print("feature shape", f0.shape)
-                    # sys.exit(1)
-                    features = [f2, f1, f0]
+                        # torch.cuda.empty_cache()
+                        f0 = extractor(batch0)
+                        f1 = extractor1(batch1)
+                        f2 = extractor2(batch2)
+                        # print("feature shape", f0.shape, f1.shape, f2.shape)
+                        # print("feature shape", f0.shape)
+                        # sys.exit(1)
+                        features = [f2, f1, f0]
                     # features = [f2.requires_grad_(True), f1.requires_grad_(True), f0.requires_grad_(True)]
                     # feature0: torch.Size([4, 512, 32, 32])
                     # feature1: torch.Size([4, 512, 16, 16])
@@ -256,10 +298,6 @@ if __name__ == "__main__":
                     del batch0, batch1, batch2, features, z, jac, batch, f0, f1, f2
                     gc.collect()
                     torch.cuda.empty_cache()
-                    
-                    # ccc+=1
-                    # if ccc >= 10:
-                    #     sys.exit(1)
 
                     optimizer.zero_grad()
                     with torch.autograd.set_detect_anomaly(True):
@@ -272,20 +310,18 @@ if __name__ == "__main__":
                         torch.cuda.empty_cache()
 
                     optimizer.step()
-
                     gc.collect()
                     torch.cuda.empty_cache()
-                    # sys.exit(1)
-                    # exit(1)
-                    # for param in flow_model.parameters():
-                    #     b = param.data
-                    #     break
-
                 # exit(1)
                 train_loss /= len(train_dl)
                 train_loss_list.append(train_loss)
 
+                anomaly_score_list = []
+
                 # Validation part
+                extractor.eval()
+                extractor1.eval()
+                extractor2.eval()
                 flow_model.eval()
                 with torch.no_grad():
                     for batch in tqdm(val_dl):
@@ -304,9 +340,12 @@ if __name__ == "__main__":
                         features = [f2, f1, f0]
 
                         z, jac = nf_forward(flow_model, features)
-
                         loss = get_loss(z, jac)
                         val_loss += loss.item()
+
+                        z_concat = t2np(concat_maps(z))
+                        nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
+                        anomaly_score_list.append(nll_score)
 
                         del batch0, batch1, batch2, features, z, jac, batch, f0, f1, f2, loss
                         gc.collect()
@@ -314,19 +353,82 @@ if __name__ == "__main__":
 
                 val_loss /= len(val_dl)
                 val_loss_list.append(val_loss)
-                
+                anomaly_score_list = np.concatenate(anomaly_score_list)
                 print("Train Loss: {train_loss}, Validation Loss: {val_loss}".format(train_loss=train_loss, val_loss=val_loss))
-                # for param in flow_model.parameters():
-                #     print(param.grad, end=" ")
+                anomaly_score = np.mean(anomaly_score_list)
+
+                if original_anomaly_score > anomaly_score and epoch >= 15:
+                    times = 0
+                    torch.save({
+                        'ast0_state_dict': extractor.state_dict(),
+                        'ast1_state_dict': extractor1.state_dict(),
+                        'ast2_state_dict': extractor2.state_dict(),
+                        'flow_state_dict': flow_model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'epoch': epoch
+                        }, checkpoint_path
+                    )
+
+                    print("original_anomaly_score: {origin_s} -> {new_s}".format(origin_s=original_anomaly_score, new_s=anomaly_score))
+                    original_anomaly_score = anomaly_score
+                elif epoch > 15:
+                    times += 1
+                    checkpoint = torch.load(checkpoint_path)
+                    # flow_model = get_cs_flow_model()
+                    flow_model.load_state_dict(checkpoint['flow_state_dict'])
+                    flow_model = flow_model.to(device)
+
+                    # FE
+                    # extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
+                    # extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
+                    # extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
+                    extractor.load_state_dict(checkpoint['ast0_state_dict'])
+                    extractor1.load_state_dict(checkpoint['ast1_state_dict'])
+                    extractor2.load_state_dict(checkpoint['ast2_state_dict'])
+                    extractor = extractor.to(device)
+                    extractor1 = extractor1.to(device)
+                    extractor2 = extractor2.to(device)
+
+                    # optimizer
+                    optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
+                    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+                    print("Reloading Model from epoch {ep}\n".format(ep=checkpoint['epoch']))
+                    print("original_anomaly_score: {origin_s} v.s. {new_s}".format(origin_s=original_anomaly_score, new_s=anomaly_score))
+                    
+                    if times >= 3:
+                        print("Get Model from epoch {ep}\n".format(ep=checkpoint['epoch']))
+                        break
+                    
+                    del checkpoint
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                del anomaly_score, val_loss, train_loss
+                gc.collect()
+                torch.cuda.empty_cache()
+            torch.save({
+                'ast0_state_dict': extractor.state_dict(),
+                'ast1_state_dict': extractor1.state_dict(),
+                'ast2_state_dict': extractor2.state_dict(),
+                'flow_state_dict': flow_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'epoch': epoch
+                }, model_file_path
+            )
             visualizer.loss_plot(train_loss_list, val_loss_list)
             visualizer.save_figure(history_img)
 
-            torch.save(flow_model.state_dict(), model_file_path)
+            # torch.save(flow_model.state_dict(), model_file_path)
             print("save_model -> {}".format(model_file_path))
+            # torch.save(extractor.state_dict(), FE0_file_path)
+            # torch.save(extractor2.state_dict(), FE1_file_path)
+            # torch.save(extractor2.state_dict(), FE2_file_path)
+            # print("save_feature_exteractor(0~2) -> {}".format(FE0_file_path))
+
             # com.logger.info("save_model -> {}".format(model_file_path))
 
             del train_dataset, val_dataset, train_dl, val_dl, flow_model
             gc.collect()
             torch.cuda.empty_cache()
-            exit(1)
+            # exit(1)
             time.sleep(5)
