@@ -40,7 +40,6 @@ from torch.utils.data import DataLoader
 from copy import deepcopy
 import matplotlib.pyplot as plt
 
-
 logging.basicConfig(level=logging.DEBUG, filename="baseline.log")
 logger = logging.getLogger(' ')
 ########################################################################
@@ -180,8 +179,39 @@ if __name__ == "__main__":
                     # (z_concat): Merge multiple feature maps into one matrix (aggreate and flat)
                     # get the L2 norm of Z * 0.5
                     z_concat = t2np(concat_maps(z))
+                    
+                    # TODO: score-v1
                     nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
+                    
+                    # z0 = z[0]
+                    # z1 = z[1]
+                    # z2 = z[2]
+                    
+                    # z0 = t2np(flat(z0))
+                    # z1 = t2np(flat(z1))
+                    # z2 = t2np(flat(z2))
+                    # z0 = z0**2/2
+                    # z1 = z1**2/2
+                    # z2 = z2**2/2
 
+                    # pos = int(z2.shape[1] * 0.05)
+                    # z0 = (np.sort(z0, axis=1))[:, -pos*4:]
+                    # z1 = (np.sort(z1, axis=1))[:, -pos*2:]
+                    # z2 = (np.sort(z2, axis=1))[:, -pos:]
+                    
+                    # flat_maps = [z0, z1, z2]
+                    # flat_maps = np.concatenate(flat_maps, axis=1)
+                    
+                    # # TODO: score-v2
+                    # nll_score = np.mean(flat_maps, axis=1) * 0.1
+                    
+                    # # TODO: score-v3
+                    # z_concat = z_concat ** 2 / 2
+                    # z_concat = np.sort(z_concat, axis=1)
+                    # pos = int(z_concat.shape[1] * 0.05)
+
+                    # nll_score = np.mean(z_concat[:, -pos:] ** 2 / 2, axis=(1, 2)) * 0.1
+                    
                     anomaly_score_list.append(nll_score)
                     test_labels.append(t2np(labels))
 
@@ -204,3 +234,4 @@ if __name__ == "__main__":
 
             
             compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type, _id=_id)
+            # exit(1)

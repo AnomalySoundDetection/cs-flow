@@ -1,7 +1,6 @@
 '''This file configures the training procedure because handling arguments in every single function is so exhaustive for
 research purposes. Don't try this code if you are a software engineer.'''
 # TODO: be clear
-model_directory = "./model"
 mode = True
 latent_size = 2048
 
@@ -29,7 +28,7 @@ modelname = "dummy_test"  # export evaluations/logs with this name
 
 dev_directory = "/mnt/HDD2/ASD_team/dev_data"
 eval_directory = "/mnt/HDD2/ASD_team/test_data"
-model_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/model"
+model_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/PANN_model"
 result_directory = "/mnt/HDD2/ASD_team/ting/cs-flow/result"
 score_export_dir = "./viz/scores"
 # machine_type = [ "slider", "fan", "pump", "ToyCar", "ToyConveyor", "valve"]
