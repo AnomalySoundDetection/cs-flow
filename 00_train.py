@@ -224,21 +224,6 @@ if __name__ == "__main__":
             
             # params in paper
             optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
-            
-            start_epoch = 1
-            
-            # load from checkpoint
-            if os.path.exists(checkpoint_path):
-                checkpoint = torch.load(checkpoint_path)
-                print("Load model from Epoch {}".format(checkpoint['epoch']))
-                start_epoch = checkpoint['epoch']
-                flow_model.load_state_dict(checkpoint['flow_state_dict'])
-                extractor.load_state_dict(checkpoint['ast0_state_dict'])
-                extractor1.load_state_dict(checkpoint['ast1_state_dict'])
-                extractor2.load_state_dict(checkpoint['ast2_state_dict'])
-                
-                optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
-                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
             flow_model = flow_model.to(device)
             extractor = extractor.to(device)
@@ -257,7 +242,7 @@ if __name__ == "__main__":
             times = 0
             original_anomaly_score = 1
             
-            for epoch in range(start_epoch, epochs+1):
+            for epoch in range(1, epochs+1):
                 extractor.eval()
                 extractor1.eval()
                 extractor2.eval()
@@ -357,52 +342,6 @@ if __name__ == "__main__":
                 print("Train Loss: {train_loss}, Validation Loss: {val_loss}".format(train_loss=train_loss, val_loss=val_loss))
                 anomaly_score = np.mean(anomaly_score_list)
 
-                if original_anomaly_score > anomaly_score and epoch >= 15:
-                    times = 0
-                    torch.save({
-                        'ast0_state_dict': extractor.state_dict(),
-                        'ast1_state_dict': extractor1.state_dict(),
-                        'ast2_state_dict': extractor2.state_dict(),
-                        'flow_state_dict': flow_model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'epoch': epoch
-                        }, checkpoint_path
-                    )
-
-                    print("original_anomaly_score: {origin_s} -> {new_s}".format(origin_s=original_anomaly_score, new_s=anomaly_score))
-                    original_anomaly_score = anomaly_score
-                elif epoch > 15:
-                    times += 1
-                    checkpoint = torch.load(checkpoint_path)
-                    # flow_model = get_cs_flow_model()
-                    flow_model.load_state_dict(checkpoint['flow_state_dict'])
-                    flow_model = flow_model.to(device)
-
-                    # FE
-                    # extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
-                    # extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
-                    # extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
-                    extractor.load_state_dict(checkpoint['ast0_state_dict'])
-                    extractor1.load_state_dict(checkpoint['ast1_state_dict'])
-                    extractor2.load_state_dict(checkpoint['ast2_state_dict'])
-                    extractor = extractor.to(device)
-                    extractor1 = extractor1.to(device)
-                    extractor2 = extractor2.to(device)
-
-                    # optimizer
-                    optimizer = torch.optim.Adam(flow_model.parameters(), lr=2e-4, eps=1e-04, weight_decay=1e-5)
-                    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-
-                    print("Reloading Model from epoch {ep}\n".format(ep=checkpoint['epoch']))
-                    print("original_anomaly_score: {origin_s} v.s. {new_s}".format(origin_s=original_anomaly_score, new_s=anomaly_score))
-                    
-                    if times >= 3:
-                        print("Get Model from epoch {ep}\n".format(ep=checkpoint['epoch']))
-                        break
-                    
-                    del checkpoint
-                    gc.collect()
-                    torch.cuda.empty_cache()
                 del anomaly_score, val_loss, train_loss
                 gc.collect()
                 torch.cuda.empty_cache()

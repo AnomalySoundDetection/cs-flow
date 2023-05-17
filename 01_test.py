@@ -91,26 +91,6 @@ if __name__ == "__main__":
     csv_lines = []
     AUC_csv = "{result}/AUC_record.csv".format(result=c.result_directory)
 
-    # init extractor
-    # extractors = feature_extractor = load_extractor(sample_rate=c.sr_list,
-    #                                                 window_size=c.n_fft,
-    #                                                 hop_size=c.hop_length,
-    #                                                 mel_bins=c.n_mels,
-    #                                                 fmin=c.fmin,
-    #                                                 fmax=c.fmax)
-    # extractor = feature_extractor = load_extractor(tdim=1024, fdim=64, target_size=8).to(device=device)
-    # extractor1 = feature_extractor = load_extractor(tdim=1024, fdim=128, target_size=16).to(device=device)
-    # extractor2 = feature_extractor = load_extractor(tdim=1024, fdim=256, target_size=32).to(device=device)
-    # extractor.eval()
-    # extractor1.eval()
-    # extractor2.eval()
-    # for param in extractor.parameters():
-    #     param.requires_grad = False
-    # for param in extractor1.parameters():
-    #     param.requires_grad = False
-    # for param in extractor2.parameters():
-    #     param.requires_grad = False
-
 
     # loop of the base directory
     for idx, machine_type in enumerate(machine_list):
@@ -198,31 +178,55 @@ if __name__ == "__main__":
 
                     # get the L2 norm of Z * 0.5
                     z_concat = t2np(concat_maps(z))
-
+                    
+                    # TODO: score-v1
+                    # nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
+                    
                     z0 = z[0]
                     z1 = z[1]
                     z2 = z[2]
+                    
                     z0 = t2np(flat(z0))
                     z1 = t2np(flat(z1))
                     z2 = t2np(flat(z2))
+                    z0 = z0**2/2
+                    z1 = z1**2/2
+                    z2 = z2**2/2
+
+                    pos = int(z2.shape[1] * 0.05)
+                    z0 = (np.sort(z0, axis=1))[:, -pos*4:]
+                    z1 = (np.sort(z1, axis=1))[:, -pos*2:]
+                    z2 = (np.sort(z2, axis=1))[:, -pos:]
+                    
+                    flat_maps = [z0, z1, z2]
+                    flat_maps = np.concatenate(flat_maps, axis=1)
+                    
+                    # TODO: score-v2
+                    nll_score = np.mean(flat_maps, axis=1) * 0.1
+
                     # flat_maps = [z0, z1, z2]
                     # zz = t2np(torch.cat(flat_maps, dim=1)[..., None])
                     # nll_score = np.mean(zz ** 2 / 2, axis=(1, 2))
-                    z0_score = np.mean(z0 ** 2 / 2, axis=(1))
-                    z1_score = np.mean(z1 ** 2 / 2, axis=(1))
-                    z2_score = np.mean(z2 ** 2 / 2, axis=(1))
+                    # z0_score = np.mean(z0 ** 2 / 2, axis=(1))
+                    # z1_score = np.mean(z1 ** 2 / 2, axis=(1))
+                    # z2_score = np.mean(z2 ** 2 / 2, axis=(1))
                     # print("z0_score", z0_score.shape, z1_score.shape)
                     # nll_score = (z0_score + z1_score + z2_score) / 3
-                    nll_score = np.mean(z_concat ** 2 / 2, axis=(1, 2))
-                    # nll_score = z2_score
-                    # print(z0_score, z1_score, z2_score, nll_score)
-                    # sys.exit(1)
+                    z_concat = z_concat ** 2 / 2
+                    z_concat = np.sort(z_concat, axis=1)
+                    pos = int(z_concat.shape[1] * 0.05)
+                    # print(z_concat.shape, pos, z_concat[0][1], z_concat[0][2])
+                    # print("the shape", z_concat[:, -pos:].shape)
+                    
+                    # TODO: score-v3
+                    nll_score = np.mean(z_concat[:, -pos:] ** 2 / 2, axis=(1, 2)) * 0.1
+
                     anomaly_score_list.append(nll_score)
                     # test_labels.append(t2np(labels))
 
                     # print("score", nll_score)
 
-                    del batch, batch0, batch1, batch2, f0, f1, f2, z
+                    del batch, batch0, batch1, batch2, f0, f1, f2, z, z0, z1, z2, flat_maps
                     gc.collect()
                     torch.cuda.empty_cache()
                     # sys.exit(1)
@@ -245,4 +249,4 @@ if __name__ == "__main__":
             torch.cuda.empty_cache()
             
             compare_histogram(anomaly_score_list, test_labels, machine_type=machine_type, _id=_id)
-            sys.exit(1)
+            # sys.exit(1)
